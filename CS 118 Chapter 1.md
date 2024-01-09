@@ -1,4 +1,4 @@
-﻿# Computer Networks and the Internet
+# Computer Networks and the Internet
 ## What is the Internet?
 ### A Nuts-and-Bolts Description
 - Traditional devices connected to the internet are known as **hosts** or **end systems**
@@ -60,3 +60,44 @@
 	- There are radio channels that operate over short distances, over local areas, and over wide areas
 - **Satellite radio channels** links two or more Earth-based microwave transmitters/receivers, known as ground stations and then regenerate the signal to transmit on another frequency
 	- **Geostationary satellites** and **low-earth orbiting satellites** are the most common, with the latter being closer to Earth and the former being 36,000 kilometers above the Earth's surface (which incurs substantial propagation delay)
+## The Network core
+### Packet Switching
+- Messages between end systems are broken down into chunks of data known as **packets**, which travel through communication links and **packet switches**
+	- These packets are transmitted over communication links at the full specified transmission rate of the link (so a rate of R bits per second can transmit a packet of L bits over L / R seconds)
+- In **store-and-forward transmission**, the packet switch must receive the *entire* packet before it can begin to transmit it (meaning it cannot just transmit the bits as they are received) to an outgoing link
+	- This incurs a delay due to the need to receive, store, and process the entire packet before forwarding
+	- In general, sending one packet from source to destination over a path of $N$ links each of rate $R$ results in an end-to-end delay of $N \frac{L}{R}$
+- A packet switch may have multiple links attached to it, and each of these links have an **output buffer** (**output queue**) that stores the packets that the router is about to send into that link
+	- If the packet must be transmitted onto a link but the link is busy, then it waits in the queue, resulting in potential **queuing delays**
+	- If the buffer space is exceeded, then **packet loss** can occur since incoming packets must be dropped
+- The communication link that a router forwards to is determined via a **forwarding table**; the router examines the destination IP address of the sent packet and searches the forwarding table for an appropriate outbound link based on this destination
+	- There are various **routing protocols** that set these forwarding tables
+### Circuit Switching
+- An alternative to packet switching is **circuit switching**, *reserves* resources needed along a path to provide for communication between end systems
+	- Packet-switching, on the other hand, is *on-demand*
+- To send information, a network must establish a *connection* between the sender and the receiver, known as a **circuit**
+	- On establishing this circuit, the network reserves a constant transmission rate in the network's links for the duration of the connection - this constant rate allows for the sender to transfer the data to the receiver at a guaranteed pacing
+- A circuit switch may have *multiple* links, allowing for simultaneous connections 
+	- Establishing an **end-to-end** connection between two hosts requires reserving circuits on each of the links between the two ends
+- A circuit in a link utilizes either **frequency-division multiplexing (FDM)** or **time-division multiplexing(TDM)**
+	- In FDM, the link dedicates a frequency band to each connection for the duration of the connection 
+	- In TDM, time is divided into frames of fixed duration and each frame is divided into a fixed number of time slots
+		- On establishing a connection, the network dedicates one time slot in every frame to the connection (think of this as similar to process scheduling)
+### Packet Switching versus Circuit Switching
+- Arguments against circuit switching primarily indicate that dedicated circuits are idle during **silent periods**, resulting in the approach being wasteful
+	- If an individual stops using the connection for a moment, then the resources (frequency bands or time slots) cannot be used by other connections
+	- On the other hand, packet switching's *on demand* nature mitigates wasteful idle time
+### Network of Networks
+- End systems connect to ISPs, but these ISPs themselves must interconnect - a *network of networks*
+- Rather than directly connect ISPs to each other, a tiered approach is instead used (there is a **customer-provider** relationship at each tier)
+	- ISP's connect to a **regional ISP**, which then connects to a possibly larger regional ISP, which then connects to a **tier-1 ISP** (which is usually global)
+- **Points of presence (PoPs)** exist at levels beyond the bottom ISP and are a group of one or more routers (at the same location) in the provider's network where customer ISPs can connect into the provider ISP
+	- ISPs generally lease a high-speed link and connect one of its routers to a router at the PoP
+- Any ISP except for the tier-1 ISP may also **multi-home**, where it connects to two or more provider ISPs in order to deal with potential failure of any of its providers
+- ISPs pay their provider ISPs is based on the amount of traffic it exchanges with the provider, but these costs can be reduced by **peering**
+	- Nearby ISPs at the same tier can directly connect their networks together so that traffic between them passes over the direct connection rather than through intermediaries
+	- A third party company can create an **Internet Exchange Point (IXP)** where multiple ISPs can peer together  
+- Additionally, today's internet also involves **content-provider networks**, with a notable example being Google
+	- Companies such as Google have interconnected, private data centers that are separate from the Internet
+	- In doing so, the private network can "bypass" some upper tiers of the Internet by peering with lower-tier ISPs via IXPs (settlement-free), but in instances where ISPs can be reached through tier-1 networks the private network will still connect to tier-1 ISPs and pay the traffic
+		- Nonetheless, the amount it must pay to upper-tier ISPs is still reduced and also allows for greater control over the content delivered
