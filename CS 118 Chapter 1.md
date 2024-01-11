@@ -155,7 +155,7 @@
 - The **physical layer** moves individual bits (in contrast to the link layer, which moves multiple bits)
 	- The specific protocols are link dependent, drawing heavily on the actual medium of the link
 ### Encapsulation
-- ![Encapsulation](./Images/Encapsulation)
+- ![](./Images/Encapsulation.png)
 - Routers and links are both packet switches, but link-layer switches only implement the physical and link layer whereas routers implement the physical, link, and network layers
 	- Although link-layer switches do not recognize IP addresses as a result, they can still recognize layer 2 addresses such as Ethernet addresses, which allows them to still route properly
 - Along each step of the process, each layer may append additional **header** information in addition to the **payload** packet from the layer above
