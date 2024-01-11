@@ -100,4 +100,74 @@
 - Additionally, today's internet also involves **content-provider networks**, with a notable example being Google
 	- Companies such as Google have interconnected, private data centers that are separate from the Internet
 	- In doing so, the private network can "bypass" some upper tiers of the Internet by peering with lower-tier ISPs via IXPs (settlement-free), but in instances where ISPs can be reached through tier-1 networks the private network will still connect to tier-1 ISPs and pay the traffic
-		- Nonetheless, the amount it must pay to upper-tier ISPs is still reduced and also allows for greater control over the content delivered
+		- Nonetheless, the amount it must pay to upper-tier ISPs is still reduced and also allows for greater control over the content delivered## Delay, Loss, and Throughput in Packet-Switched Networks
+- **Processing delay** refers to the delay associated with the time it takes to examine a packet's header and determine where to direct it
+	- It may also involve checking any bit-level errors
+	- This type of delay is typically miniscule - on the order of microseconds or less
+- **Queuing delay** refers to the delay associated with a packet waiting in queue as it waits to be transmitted on a link
+	- This type of delay is dependent on the number of earlier-arriving packets that are also queued - so if there are no earlier packets then this delay is zero but if there is a heavy traffic of packets all waiting in queue then this delay while be significantly larger
+- **Transmission delay** refers to the delay associated with waiting for the entire packet to arrive before sending it out on the link
+	- If a packet is $L$ bits, and the transmission rate is $R$ bits per second, then the transmission delay is $\frac{L}{R}$
+- **Propagation delay** refers to the delay associated with the propagation of the bit on the link it was sent through
+	- This type of delay depends on the inherent physical medium and is therefore bounded by the speed of light
+	- If $d$ is the distance between routers and $s$ is the speed of the medium, then the propagation delay is $\frac{d}{s}$
+- The **total nodal delay** is the sum of all delays
+	- $d_{nodal} = d_{proc} + d_{queue} + d_{trans} + d_{prop}$
+### Queuing Delay and Packet Loss
+- Since queuing delay can vary from packet to packet, it is often quantified using statistical measures
+- Queuing delay depends on the rate at which traffic arrives at the queue, the transmission rate of the link, and the nature of the traffic itself
+- If $a$ is the average rate at which packets arrive in the queue, with each packet being $L$ bits, then the average rate at which bits arrive in the queue is $La$ bits per second
+- The ratio of this queue bit rate to the link transmission rate is $\frac{La}{R}$, known as the **traffic intensity**
+	- If the traffic intensity is greater than 1, then the queue will increase without bound
+	- If the traffic intensity is less than 1, then the queueing delay is impacted by the nature of the incoming traffic
+		- If packets arrive periodically every $L/R$ seconds, then every packet arrives at an empty queue and there is no delay
+		- If packets arrive in bursts (e.g. $N$ packets every $L/R$ seconds), then the $nth$ packet experiences a delay of $(n-1)\frac{L}{R}$
+- Typically, the arrival of packets is random, which makes it difficult to quantify the delay appropriately
+- If a packet arrives to a full queue, then router must **drop** a packet
+### End-to-End Delay
+- If there are $N - 1$ routers between a source and destination, each with negligible queueing delays and homogenous processing, transmission, and propagation delays, then the total end-to-end delay is:
+	- $d_{end-to-end} = N(d_{proc} + d_{trans}+d_{prop})$
+### Throughput in computer Networks
+- **Instantaneous throughput*** is the rate at any instant of time in which it takes to transfer data from one end to another
+	- **Average throughput** of $F$ bits of data taking $T$ seconds to fully transmit is $F/T$
+- Throughput is influenced by **bottleneck links**
+	- E.g. For a two-link network, the throughput is the minimum throughput of its two links
+	- Typically, though, the core of the Internet is fast enough in terms of throughput that it is seldom the bottleneck link - typically, the bottleneck links are the access networks (edges)
+		- If there is very heavy traffic - data from *many* hosts go through a single high-speed link - though it can be the case that a core link can be a bottleneck
+## Protocol Layers and their Service Models
+- Network protocols are organized into **layers**, corresponding to a **service model** where one layer provides service to layers above it while making use of the services of the layers below it
+	- Protocol layers can be implemented in hardware, software, or a combination of the both
+- An argued advantage to the layering model is that it enables modularity, allowing for more ease in updating system components
+	- An argued disadvantage, though is that a higher level layer may duplicate lower-layer functionality (e.g. error recovery) and that functionality at one layer may require information only present in another layer, which defeats the purpose of separating layers
+- The **application layer** is the topmost layer and is where network applications reside
+	- It consists of protocols such as HTTP, SMTP (email transfer), FTP (file transfer), DNS, and so forth
+	- The information that an applicational layer end system exchanges with another is known as a **message**
+- The **transport layer** is the next layer and transports application-layer messages between application endpoints, opting to use either TCP or UDP
+	- TCP ensures guaranteed delivery of messages, flow control (matches speed of sender and receiver), and congestion control mechanisms (source throttles its transmission rate when a network is congested)
+	- UDP does not ensure the same guarantees as TCP, but as a result is faster (though less reliable)
+	- A transport-layer packet is known as a **segment**
+- The **network layer** moves packets known as **datagrams** from one host to another, relying on the IP protocol which defines fields in the datagram and how end systems and routers act on these fields
+	- There are also routing protocols that determine the routes datagrams take between sources and destinations
+- At each node, the network layer passes the datagram down to the link layer, which delivers the datagram to the next node along the route
+	- At this next node, the link layer then passes the datagram back up to the network layer
+	- The services depend on the specific link-layer protocol employed over the link, which may differ over Ethernet, WiFi, and so forth
+	- Link-layer packets are known as **frames**
+- The **physical layer** moves individual bits (in contrast to the link layer, which moves multiple bits)
+	- The specific protocols are link dependent, drawing heavily on the actual medium of the link
+### Encapsulation
+- ![Encapsulation](./Images/Encapsulation)
+- Routers and links are both packet switches, but link-layer switches only implement the physical and link layer whereas routers implement the physical, link, and network layers
+	- Although link-layer switches do not recognize IP addresses as a result, they can still recognize layer 2 addresses such as Ethernet addresses, which allows them to still route properly
+- Along each step of the process, each layer may append additional **header** information in addition to the **payload** packet from the layer above
+	- This header information is useful on the receiver-side of the same layer - e.g. the receiver-side network layer may need to know the appropriate source and destination addresses
+	- This is an example of **encapsulation**
+## Networks Under Attack
+- **Malware** received through the internet can pose a risk to devices, as they can compromise private information on the device and send them to the attackers
+	- These devices may even become part of a **botnet**, which can be leveraged for spam or DDoS purposes
+	- Malware can be self-replicating - an infected device can seek out other devices to infect
+- A **Denial-of-Service (DoS)** attack renders a piece of Internet infrastructure unusable by exploiting a vulnerability, flooding its bandwidth (sending a large barrage of packets), or flooding its connection (establishing a large number of TCP connections)
+	- In bandwidth flooding, a single large source of traffic can be detected relatively easily and purged, hence why **Distributed Denial-of-Service (DDoS)** attacks are more common, where the attacker has multiple sources, each of which barrages packets at the target
+- **Packet sniffing** involves leveraging devices (packet sniffers) to record a copy of every packet that passes through a receiver 
+	- To protect against sensitive information being stolen, cryptography is often utilized
+- **IP Spoofing** involves injecting packets in the Internet using a false source address, allowing one to potentially assume the identity of another party
+	- This requires some form of end-point authentication to properly address
