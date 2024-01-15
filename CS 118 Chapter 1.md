@@ -12,8 +12,8 @@
 	- Internet standards that develop these protocols over time are managed by the Internet Engineering Task Force (IETF)
 ### A Services Description
 - The Internet can be thought of as an infrastructure that provides services to applications 
-	- Internet applications are **distributed applications** since they involve multiple end systems that exchange data with each other
-	- These applications run on the end systems themselves and not on the packet switches in the network core - these switches just allow for the exchange of data
+  - Internet applications are **distributed applications** since they involve multiple end systems that exchange data with each other
+  - These applications run on the end systems themselves and not on the packet switches in the network core - these switches just allow for the exchange of data
 - End systems make use of a **socket interface** that specifies how a program running on one end system can deliver data to a specific destination program running on another end system 
 ### Protocols
 - The Internet is built upon various protocols, which can allow for congestion control, packet routing control, and so forth
@@ -24,19 +24,25 @@
 ### Access Networks
 - **Access networks** physically connect an end system to the first router (edge router) on a path from the end system to any end system
 #### Home Access
-- One of the most prevalent types of residential access to the Internet is through the **digital subscriber line (DSL)**, which makes use of existing telephone company infrastructure for wired local phone access
-	- The DSL modem uses the telephone line to exchange data with a digital subscriber line access multiplexer (DSLAM), which is located in the telephone company's local central office
-	- Thus, the home DSL modem takes digital data and translates it to a high frequency tone to transmit over the telephone wires to the local central office, where the analog signals are translated back into digital format
-	- The telephone line carries both data and telephone signals simultaneously, encoding both at different frequencies; a splitter initially separates the data and telephone signals before forwarding to the DSL modem, which then separates the data and phone signals upon receiving them
-		- High-speed downstream (download) channel in 50 kHz to 1 MHz band
-		- Medium-speed upstream (upload) channel in 4 kHz to 50 kHz band
-		- Two-way telephone channel in 0 to 4 kHz band
+- One of the most prevalent types of residential access to the Internet is through the **digital subscriber line (DSL)**, which makes use of existing telephone company infrastructure for wired local phone access	
+  - The DSL modem uses the telephone line to exchange data with a digital subscriber line access multiplexer (DSLAM), which is located in the telephone company's local central office
+    - Data over the DSL phone line goes to the internet whereas voice over the DSL phone line goes to the telephone network (via a splitter)
+  - Unlike with cable, each home has a *dedicated line* to the central office
+    - Cable interconnects all the outgoing coaxial lines from the houses into a single line towards the central office
+  - Thus, the home DSL modem takes digital data and translates it to a high frequency tone to transmit over the telephone wires to the local central office, where the analog signals are translated back into digital format
+  - The telephone line carries both data and telephone signals simultaneously, encoding both at different frequencies; a splitter initially separates the data and telephone signals before forwarding to the DSL modem, which then separates the data and phone signals upon receiving them
+    - High-speed downstream (download) channel in 50 kHz to 1 MHz band
+    - Medium-speed upstream (upload) channel in 4 kHz to 50 kHz band
+    - Two-way telephone channel in 0 to 4 kHz band
 - Another prevalent type of residential access is **cable Internet access**, which makes use of existing television infrastructure 
-	- Neighborhoods and houses utilize coaxial cables, which are connected to fiber nodes that connect to the cable company via high speed fiber cables 
-	- Cable access makes use of cable modems, which typically connect to the home PC through an Ethernet port
-	- The cable head end (on the company side) acts similarly to the DSLAM in that it turns the analog signal sent from the cable modems into digital format
-	- Cable modems divide the network into two channels - upstream and downstream, with downstream being allocated a higher transmission rate (since typically users receive more data than they send)
-	- Cable is a shared broadcast medium, meaning that every packet sent by the head end travels downstream on *every link* to *every home*, which can affect performance
+  - Neighborhoods and houses utilize coaxial cables, which are connected to fiber nodes that connect to the cable company via high speed fiber cables 
+  - Cable access makes use of cable modems, which typically connect to the home PC through an Ethernet port
+    - There is a splitter that splits the incoming cable between the modem and the television
+  - The cable head end (on the company side) acts similarly to the DSLAM in that it turns the analog signal sent from the cable modems into digital format
+  - Cable modems divide the network into two channels - upstream and downstream, with downstream being allocated a higher transmission rate (since typically users receive more data than they send)
+  - Cable is a shared broadcast medium, meaning that every packet sent by the head end travels downstream on *every link* to *every home*, which can affect performance
+  - Cable modems can be frequency divided, so different channels can be transmitted in different frequency bands
+    - Some bands can be allocated to video whereas other channels can be allocated for data
 - **Fiber to home (FTTH)** is an upcoming technology that provides an optical fiber path from the company central office directly to the residential home, at a significantly faster rate
 	- Passive optical networks (PONs) provide each home with an optical network terminator, which is connected by a dedicated optical fiber to a neighborhood splitter that combines a number of homes into a single optical fiber that connects via an optical online terminator to the central office
 - **5G fixed wireless** is also becoming more prevalent, which provides high-speed residential access without any cable
@@ -47,17 +53,24 @@
 - In a wireless LAN setting, wireless users receive or transmit packets via an access point that is connected into the enterprise network (likely through ethernet), which is then connected to the wired Internet
 	- Wide-area wireless access has developed to provide such an infrastructure at even larger distances from a base station - e.g. 4G and 5G
 ### Physical Media
+- These different types of **communication (physical) links** may have varying transmission rate (**bandwidth**)
 - **Twisted-pair copper wire** is a guided transmission medium that is relatively inexpensive and commonly used
 	- Insulated pairs of copper wires are twisted together (to reduce electrical interference) and wrapped in a protective shield, although **unshielded twister pair (UTP)** is also commonly used for LANs
 	- Twisted pair is common for residential access via DSL and can range in data rates from 10 Mbps to 10 Gbps
+  - Copper wires are bidirectional
 - **Coaxial cable** consists of two copper conductors but concentric rather than parallel, allowing for high data transmission rates
 	- Coaxial cable is common for cable Internet access, and tends to involve a transmitter shifting the digital signal to a specific frequency band to send to one or more receivers
 	- Coaxial cable is a **shared medium**, as a number of end systems can receive what is sent by the other end systems since they are connected directly to the cable
+  - Coaxial cables are *broadband*, so there are multiple frequency channels on the cable
+    - Each channel is roughly 100's of Mbps rate
+  - Coaxial cable is bidirectional
 - **Fiber optics** are thin, flexible mediums that conduct pulses of light (representing bits)
 	- They can support very high bit rates and are immune to electromagnetic interference but are very expensive
 	- As a result of their expense, they are not typically used for short-distance transport but mostly for long distance situations
+  - Fiber optics is bidirectional
 - **Terrestrial radio channels** are an unguided medium that carry signal long distances via radio waves, though they are sensitive to environmental interferences such as interference
 	- There are radio channels that operate over short distances, over local areas, and over wide areas
+  - Radio is *not* bidirectional, but is rather half-duplex
 - **Satellite radio channels** links two or more Earth-based microwave transmitters/receivers, known as ground stations and then regenerate the signal to transmit on another frequency
 	- **Geostationary satellites** and **low-earth orbiting satellites** are the most common, with the latter being closer to Earth and the former being 36,000 kilometers above the Earth's surface (which incurs substantial propagation delay)
 ## The Network core
@@ -71,7 +84,7 @@
 	- If the packet must be transmitted onto a link but the link is busy, then it waits in the queue, resulting in potential **queuing delays**
 	- If the buffer space is exceeded, then **packet loss** can occur since incoming packets must be dropped
 - The communication link that a router forwards to is determined via a **forwarding table**; the router examines the destination IP address of the sent packet and searches the forwarding table for an appropriate outbound link based on this destination
-	- There are various **routing protocols** that set these forwarding tables
+	- There are various **routing protocols** that set these forwarding tables based on the network topology
 ### Circuit Switching
 - An alternative to packet switching is **circuit switching**, *reserves* resources needed along a path to provide for communication between end systems
 	- Packet-switching, on the other hand, is *on-demand*
@@ -82,15 +95,20 @@
 - A circuit in a link utilizes either **frequency-division multiplexing (FDM)** or **time-division multiplexing(TDM)**
 	- In FDM, the link dedicates a frequency band to each connection for the duration of the connection 
 	- In TDM, time is divided into frames of fixed duration and each frame is divided into a fixed number of time slots
-		- On establishing a connection, the network dedicates one time slot in every frame to the connection (think of this as similar to process scheduling)
+		- On establishing a connection, the network dedicates one time slot in every frame to the connection (think of this as similar to round-robin process scheduling)
 ### Packet Switching versus Circuit Switching
 - Arguments against circuit switching primarily indicate that dedicated circuits are idle during **silent periods**, resulting in the approach being wasteful
 	- If an individual stops using the connection for a moment, then the resources (frequency bands or time slots) cannot be used by other connections
 	- On the other hand, packet switching's *on demand* nature mitigates wasteful idle time
+- Circuit-switching requires employing more resources compared to packet-switching for the same amount of users being served
+- While packet switching is indeed generally better than circuit switching, it still has its own issues that must be addressed
+	- Since there is a possibility of excessive congestion, it is necessary for protocols to account for congestion control and reliable data transfer in the case of packet delay or packet loss
 ### Network of Networks
 - End systems connect to ISPs, but these ISPs themselves must interconnect - a *network of networks*
+  - Think of a home network or enterprise network, which then interconnects with a local ISP, which itself goes up to a regional ISP, and so forth
 - Rather than directly connect ISPs to each other, a tiered approach is instead used (there is a **customer-provider** relationship at each tier)
 	- ISP's connect to a **regional ISP**, which then connects to a possibly larger regional ISP, which then connects to a **tier-1 ISP** (which is usually global)
+		- The tier-1 ISPs will be interconnected (they must be since they are at the highest level)
 - **Points of presence (PoPs)** exist at levels beyond the bottom ISP and are a group of one or more routers (at the same location) in the provider's network where customer ISPs can connect into the provider ISP
 	- ISPs generally lease a high-speed link and connect one of its routers to a router at the PoP
 - Any ISP except for the tier-1 ISP may also **multi-home**, where it connects to two or more provider ISPs in order to deal with potential failure of any of its providers
@@ -100,7 +118,8 @@
 - Additionally, today's internet also involves **content-provider networks**, with a notable example being Google
 	- Companies such as Google have interconnected, private data centers that are separate from the Internet
 	- In doing so, the private network can "bypass" some upper tiers of the Internet by peering with lower-tier ISPs via IXPs (settlement-free), but in instances where ISPs can be reached through tier-1 networks the private network will still connect to tier-1 ISPs and pay the traffic
-		- Nonetheless, the amount it must pay to upper-tier ISPs is still reduced and also allows for greater control over the content delivered## Delay, Loss, and Throughput in Packet-Switched Networks
+		- Nonetheless, the amount it must pay to upper-tier ISPs is still reduced and also allows for greater control over the content delivered
+## Delay, Loss, and Throughput in Packet-Switched Networks
 - **Processing delay** refers to the delay associated with the time it takes to examine a packet's header and determine where to direct it
 	- It may also involve checking any bit-level errors
 	- This type of delay is typically miniscule - on the order of microseconds or less
@@ -156,12 +175,14 @@
 	- The specific protocols are link dependent, drawing heavily on the actual medium of the link
 ### Encapsulation
 - ![](./Images/Encapsulation.png)
+- Application -> Transport -> Network -> Link -> Physical -> Physical -> Link -> Network -> Transport -> Application
 - Routers and links are both packet switches, but link-layer switches only implement the physical and link layer whereas routers implement the physical, link, and network layers
 	- Although link-layer switches do not recognize IP addresses as a result, they can still recognize layer 2 addresses such as Ethernet addresses, which allows them to still route properly
 - Along each step of the process, each layer may append additional **header** information in addition to the **payload** packet from the layer above
 	- This header information is useful on the receiver-side of the same layer - e.g. the receiver-side network layer may need to know the appropriate source and destination addresses
 	- This is an example of **encapsulation**
 ## Networks Under Attack
+- The Internet was not originally designed with security in mind - the original vision for the Internet had a group of mutually trusting users in mind
 - **Malware** received through the internet can pose a risk to devices, as they can compromise private information on the device and send them to the attackers
 	- These devices may even become part of a **botnet**, which can be leveraged for spam or DDoS purposes
 	- Malware can be self-replicating - an infected device can seek out other devices to infect
@@ -171,3 +192,9 @@
 	- To protect against sensitive information being stolen, cryptography is often utilized
 - **IP Spoofing** involves injecting packets in the Internet using a false source address, allowing one to potentially assume the identity of another party
 	- This requires some form of end-point authentication to properly address
+- Some lines of defense involve:
+	- Authentication: Proving you are who you say you are (e.g. via hardware such as a SIM card)
+	- Confidentiality via encryption
+	- Integrity checks (digital signatures or tampering detection)
+	- Access restriction (password-protected VPNs)
+	- Firewalls
