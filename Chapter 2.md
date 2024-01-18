@@ -165,3 +165,97 @@
 	- There is an HTTP interface for agents to retrieve mail from their mail servers, but there is a SMTP interface for mail servers to send mail to other mail servers
 	- The interface can allow users to manage messages into folders and so forth
 	- An alternative to the HTTP interface is the **Internet Mail Access Protocol (IMAP)**
+ ## DNS - The Internet's Directory Service
+- Internet hosts can be identified in various ways - such as width a human-friendly **hostname** (e.g. `www.google.com`) or with exact, easy-to-process **IP addresses** (e.g. `121.7.106.83`
+	- Scanning an IP address from left-to-right provides more information about where the host is located in the Internet
+### Services Provided by DNS
+- The **Domain Name System (DNS)** is a directory that translates hostnames to IP addresses
+- The DNS is a *distributed database* of **DNS servers** *and* an application-layer protocol that enables hosts to query the distributed databas
+	- The servers are UNIX machines running Berkeley Internet Name Domain (BIND) software
+	- The protocol runs over UDP and is typically over port 53
+- DNS is used by application-layer protocols (e.g. HTTP / SMTP) to translate the passed in hostname to an IP address before actually sending their protocol-specific messages
+	- The specified hostname is passed into the client side of DNS, which sends a query containing this hostname to a DNS server, which eventually replies with the IP address for the hostname that the client browser can use to initiate a TCP/UDP connection 
+- Since most applications rely on DNS under-the-hood, there is an additional delay associated with the hostname-to-IP translation
+	- In some cases this delay is significant, but it is often minimal due to caching
+- Other DNS Services:
+	- **Host Aliasing**: A host with a complicated **canonical hostname** (e.g. `relay1.west-coast.enterprise.com`) can have one or more **alias names** (e.g. `www.enterprise.com`), and DNS can be used obtain a canonical hostname (and its IP) from an alias hostname
+		- Mail servers can be aliased in a similar manner - in fact, a company's mail server and Web server can have identical aliased hostnames
+	- **Load Distribution**: Certain sites can be *replicated* over multiple servers, meaning they have a *set* of IP addresses associated with a hostname. The DNS database will contain this set of IP addresses and return the entire set upon a query 
+		- It will also *cycle* the ordering of this set with each reply - since clients typically connect to the first IP address in the set, this allows traffic to be distributed more efficiently among the replicated servers
+### Overview of How DNS Works
+- Maintaining DNS as a single, centralized database incurs various risks, so it is instead architected as a *distributed, hierarchical database*
+- There are roughly three classes of DNS servers: root servers, top-level domain (TLD) servers, and authoritative servers
+	- ![DNS Server Hierarchy](./Images/DNS_Hierarchy.png)
+	- Typically, a client will contact a root server, which will return the IP address of a top-level domain server, which (after contacted again) will return the IP of an authoritative server, which (after contacted again) will finally returns the IP address of the hostname
+	- There are 1000 root server instances across the world, which are copies of 13 different root servers
+		- These are managed by 12 different organizations, which are coordinated via the Internet Assigned Numbers Authority
+	- For each top-level domain such as `.com`, `.net`, `.org`, `.fr`, etc., there is a TLD server 
+		- Various companies manage the top-level domains
+	- Organizations with publicly accessible hosts must provide publicly accessible DNS records to map their host names to IP addresses 
+		- Organizations can implement their own authoritative servers to hold these records or they can pay another organization to do so on their behalf
+- There are also **local DNS servers**, which are typically connected close to the host (e.g. for an institution directly via LAN or for a residence a few routers away to the ISP) and act as proxies for DNS queries made by the host
+- Iterative DNS Chain Example:
+	- ![Iterative DNS Chain](./Images/Iterative_DNS.png)
+	- The host wants to find the IP address of `gaia.cs.umass.edu`, so it sends this to the local DNS server, `dns.nyu.edu` 
+	- The local DNS forwards to the root server, which returns the IP addresses for the top-level servers associated with `edu` to the local server
+	- The local server sends the hostname to one of the returned top-level IP addresses, which responds with `dns.umass.edu`
+	- Finally, the local server sends the hostname `gaia.cs.umass.edu` to the DNS server associated with `dns.umass.edu`, which responds with the IP address
+	- In some instance, a TLD server may not know the authoritative DNS for a hostname, but rather an intermediate
+		- There must be an additional step going through the intermediate in this case
+- In a **recursive query**, the addresses are not returned each time to the local DNS server but rather are recursively forwarded each time until the IP address is found and returned bottom-up
+	- ![Recursive Query](./Images/Recursive_Query.png)
+- **DNS caching** is utilized to improve performance 
+	- In a query chain (when a DNS server receives a reply), it can cache the copy of the information it received 
+	- These cached items can be periodically removed (e.g. every 2 days)
+### DNS Records and Messages
+- The entries in the DNS distributed database are known as **resource records (RRs)**, typically a four-tuple: `(Name, Value, Type, TTL)`
+	- `TTL` determines how long a resource should be cached before it should be removed
+	- The `Type` field determines the `Name` and `Value` fields:
+		- `Type=A`: `Name` is a hostname and `Value` is the IP address for that hostname (e.g. `(relay1.bar.foo.com, 145.37.93.126, A)`)
+		- `Type=NS`: `Name` is a domain and `Value` is the *hostname* of an authoritative DNS server that knows how to obtain the IP address for hosts in the domain (e.g. `(foo.com, dns.foo.com, NS)`)
+			- This record is used to route further DNS queries
+			- The hostname associated with `Value` should have a Type `A` entry for the IP address in the same server database (so that there actually is another server that can be routed to)
+		- `Type=CNAME`: `Value` is the canonical hostname for `Name` (e.g. `(foo.com, relay1.bar.foo.com, CNAME)`)
+		- `Type=MX`: `Value` is the canonical hostname of a mail server that has name `Name` (e.g. `(foo.com, mail.bar.foo.com, MX)`)
+			- This allows for the same aliased name for a mail server with other servers because they are differentiated via the `MX` type field
+- DNS query and reply messages take the same format:
+	- ![DNS Message Format](./Images/DNS_Message.png)
+	- In the header, there is an identifier that matches a query and reply, various flags, and four number-of fields to indicate the number of occurrences of each type of data section following the header
+		- Flags include: Whether the message is a query or reply, whether (if a reply) the queried DNS server is authoritative for the queried name (it contains its IP address), whether the client desires a recursive query, whether (in a reply) the server supports recursion
+	- In the question section, there is a name field containing the name being queried and a type field containing the type of query (`A`. `NS`, `CNAME`, `MX`)
+	- In the answer section, the resource records for the name that was originally queried are listed
+		- There can be multiple resource records since a hostname can have multiple IP addresses
+	- In the authority section, records of other authoritative servers are listed
+	- In the additional section, other helpful records are provided (e.g. if there is a `MX` query, the additional section on a reply may also contain the `A` resource record associated with the same hostname)
+- To insert a record into the DNS database, one must consult a **registrar**, which is a commercial entity that verifies the uniqueness of a domain name, enters it into the DNS database, and collects a small fee
+### Peer-to-Peer File Distribution
+- A very common use for the peer-to-peer (P2P) architecture is distributing a large file from a single server to a large number of hosts
+	- Under client-server, a *single server* must distribute a very large file to many hosts, which places large strain on the server
+	- Via peer-to-peer, much of this strain is spread about the peers
+	- A common peer-to-peer application for file downloading is BitTorrent
+- In considering scalability, let the upload rate of a server be $u_s$, the upload and download rate of peer $i$ be $u_i$ and $d_i$, respectively, and the number of peers $N$, and the size of the file $F$
+	- Under client-server, the **distribution time** is bottlenecked by the server's upload of the file to all $N$ peers, represented as $NF/u_s$, and also bottlenecked by the slowest downloading peer, reprsented as $F/d_{min}$
+		- $D_{cs} \geq \max{(\frac{NF}{u_s}, \frac{F}{d_{min}})}$
+	- Under peer-to-peer, the server must distribute the file initially, represented as $F/u_s$, but after the peers do the distribution
+		- There is still a bottleneck with the slowest downloading peer, represented as $F/d_{min}$
+		- There is still a bound of the total upload capacity of the system: $NF/(u_s+u_1+...u_N)$
+		- $D_{cs} \geq \max{(\frac{F}{u_s}, \frac{F}{d_{min}}, \frac{NF}{u_s+\Sigma u_i})}$
+	- Typically, the peer-to-peer will have *much better* performance than client-server
+- In BitTorrent, the collection of peers downloading a file is known as a *torrent*, and peers download equal-size *chunks* (typically 256 KB) of this file from each other 
+	- A torrent initially has no chunks, but over time it accumulates more chunks (from the server) and uploads chunks to other peers
+	- Torrents have an infrastructure node known as a *tracker*, which keeps track of peers still in the torrent
+	- The tracker, on a new peer joining, selects a subset of peers participating in the torrent and sends their IP address to the new peer, which then establishes a TCP connection with all the listed peers - these are **neighboring peers**, and more may come or leave over time
+	- In the torrent, each peer will have a subset of chunks, and different peers will have different subsets
+		- A user will periodically ask their neighboring peers for the list of chunks that they have - this information can be used to determine which chunks to request
+		- Typically, **rarest first** is used to determine which chunks a user should request first 
+			- This, in a sense, allows for the chunk to become more common
+	- BitTorrent's trading algorithm gives priority in providing chunks to neighbors that supply data at the *highest rate*
+		- The user measures (in this case) the four peers feedings bits at the highest rate and then reciprocates by sending chunks to these same (in this case) four peers
+			- The four highest rates are recalculated every 10 seconds
+			- The four peers are **unchoked**
+		- Every 30 seconds, the user chooses a random neighbor and begins to feed them chunks
+			- This neighbor is **optimistically unchoked**
+			- The idea is that this randomly chosen neighbor might have the user as one of their top-four senders and begin to send them chunks
+				- As a result, this randomly chosen neighbor might become one of the user's top-four senders
+		- This system allows for peers uploading at compatible rates to find each other, while also allowing new peers to get chunks via the random, optimistically unchoked selections
+			- All neighbors other than the five (four top-senders, one random) do not receive chunks (until they might get lucky with the random choice)
