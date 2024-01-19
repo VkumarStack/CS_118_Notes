@@ -23,8 +23,10 @@
   - In *P2P*, a process can be both a client and a server but in general the process that asks for a file is the client (and the process that is to send this file is the server)
 - Processes send messages into and receive messages from **sockets**, which is the *API* between the application layer and transport layer within a host
   - An application developer has control of everything on the application-layer side of the socket but cannot control the transport-layer side - other than being able to set a few parameters such as the choice of transport protocol
+  - Multiple socket connections can be open at a time (as to connect to multiple hosts, or have even multiple connections to the same host)
 - To send a message to a particular destination, an **IP address**, which is a 32-bit (now 64-bit) quantity that uniquely identifies a host, and a **port number**, which identifies the receiving process *within the host device*, is necessary
   - A host could be running *many* network applicatons, hence why indicating a specific port number is important to identify the correct application being communicated with
+  - By default, a Web browser will try to contact port 80 (associated with HTTP)
 ### Transport Services Available to Applications
 - When considering which transport layer protocol to use via the socket interface, there are many factors to be aware of
 - One concern is **reliable data transfer** - that is, if a protocol provides a guarantee of data delivery, even in the case of packet loss or corruption
@@ -43,7 +45,9 @@
 - **TCP** is connected-oriented and ensures data reliability
   - The client and the server exchange transport-layer control information *before* the application-level messages flow; this **handshaking process** establishes a TCP connection between the sockets of the two processes
     - The connection goes both ways
+    - Flow control ensures the sender does not overwhelm the receiver
   - There is also a congestion-control mechanism that throttles a sending process when the network is congested between the sender and the receiver
+    - This is different from flow control as flow control throttles based on *endpoints* whereas congestion control throttles based on *network core*
   - An extension to TCP is known as **Transport Layer Security (TLS)**, which adds on to TCP security services such as encryption, data integrity, and end point authentication
     - The TLS socket will encrypt data before passing it through the TCP socket, and then the receiver TLS socket will decrypt the data before passing is through the receiver's TCP socket
 - **UDP** is more of a lightweight protocol, notably being connectionless and unreliable
@@ -53,6 +57,7 @@
 ### Application Layer Protocols
 - An **application-layer protocol** defines how an *application's processes* pass messages to each other, such as the types of messages exchanged, the syntax of messages, the semantics of fields, rules for how to send and respond to messages
   - A common, publicly available application-layer protocol is HTTP
+  - Open protocols are typically defined in RFCs - everyone has access to the protocol definition, which allows for ease in interoperability
   - Other applications may have proprietary protocols
 - An application layer protocol is only one *piece* of a network application - specifically, a piece that governs how to communicate with other applications
 ## The Web and HTTP
