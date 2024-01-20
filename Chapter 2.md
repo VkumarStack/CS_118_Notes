@@ -337,3 +337,81 @@
 - Google utilizes pull caching and DNS redirect strategies for its delivery
 	- It also determines the best CDN to serve content from via the lowest round-trip time between the client and clusters
 - YouTube does not employ DASH but instead HTTP streaming, requiring a user to manually select a video version (that stays the same throughout)
+## Socket Programming
+### UDP
+- Client:
+	-		from socket import *
+			serverName = 'hostname'
+			serverPort = 12000
+			
+			# AF_INET specifies IPv4 and SOCK_DGRAM specifies UDP
+			# The port number of the client socket does not need to be specified, as this
+			# is handled by the operating system
+			clientSocket = socket(AF_INET, SOCK_DGRAM)
+			
+			message = input('Input lowercase sentence:')
+			
+			# The message is converted to byte type and sent to the destination address and port
+			clientSocket.sendto(message.encode(), (serverName, serverPort))	
+			
+			# Await for server response; serverAddress contains the server's IP address and 
+			# port number
+			# The buffer size is specified as 2048
+			modifiedMessage, serverAddress = clientSocket.recvfrom(2048)
+
+			print(modifiedMessage.decode())
+			clientSocket.close()
+- Server:
+	-     from socket import *
+				serverPort = 12000
+				serverSocket = socket(AF_INET, SOCK_DGRAM)
+
+				# Bind the server's port number 12000 to the socket, so 
+				# any packets sent to port 12000 will be routed to this socket
+				serverSocket.bind(('', serverPort))
+				print("The server is ready to receive")
+				while True:
+					message, clientAddress = serverSocket.recvfrom(2048)
+					modifiedMessage = message.decode().upper()
+
+					# Send the message to the client address
+					# This will also implicitly send the server's address
+					serverSocket.sendto(modifiedMessage.encode(), clientAddress)
+### TCP
+- With TCP, it is necessary to first establish a connection - after doing so, however, messages can be passed into the socket without needing to specify an address each time
+	- This implies that the server must have a special socket to start the initial handshaking 
+- Client:
+	-     from socket import *
+				serverName = 'servername'
+				serverPort = 12000
+
+				# SOCK_STREAM specifies TCP
+				clientSocket = socket(AF_INET, SOCK_STREAM)
+
+				clientSocket.connect((serverName, serverPort))
+				sentence = input('Input lowercase sentence:')
+				clientSocket.send(sentence.encode())
+				modifiedSentence = clientSocket.recv(1024)
+				print('From Server: ', modifiedSentence.decode())
+				clientSocket.close()
+- Server:
+	-     from socket import *
+				serverPort = 12000
+				serverSocket = socket(AF_INET, SOCK_STREAM)
+
+				# Binds the handshake socket to the server port
+				serverSocket.bind(('', serverPort))
+				
+				# Listens to TCP connection requests from the client, with the maximum number of 
+				# queued connections being 1
+				serverSocket.listen(1)
+				print('The server is ready to receive')
+				while True:
+					# This accepts the handshake and creates a connectionSocket dedicated to the 
+					# client
+					connectionSocket, addr = serverSocket.accept()
+
+					sentence = connectionSocket.recv(1024).decode()
+					capitalizedSentence = sentence.upper()
+					connectionSocket.send(capitalizedSentence.encode())
+					connectionSocket.close()
