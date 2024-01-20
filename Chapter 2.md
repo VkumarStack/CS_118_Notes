@@ -81,15 +81,17 @@
 		- There is another round-trip for the actual request itself (client sends the request, and then the server returns the request)
 - **Persistent** HTTP connections *leave the TCP connection open* after sending a response
 	- Multiple requests can be sent back-to-back by the client, without needing to wait for a response
+		- This allows for the client to parse the HTML file and send requests for all of the reference object files without incurring the extra RTT delays associated with closing and opening TCP connections (as with non-persistent connections)
 	- HTTP servers will typically close a connection if it has not been used for a certain period of time
 ### HTTP Message Format
 - HTTP Request:
 	- Example:
-		-      GET /somedir/page.html HTTP/1.1
-			   Host: www.someschool.edu
-			   Connection: close
-			   User-agent: Mozilla/5.0
-			   Accept-language: fr
+		-     GET /somedir/page.html HTTP/1.1 \r\h
+		      Host: www.someschool.edu \r\n
+		      Connection: close \r\n
+		      User-agent: Mozilla/5.0 \r\n
+		      Accept-language: fr \r\n
+		      \r\n
    - The first line is known as the **request line**, and it specifies the request method (GET, POST, HEAD - similar to GET but leaves out object, PUT, DELETE), the URL, and the HTTP version
 	   - The URL is relative to the host
    - There are subsequent **header lines**
@@ -122,7 +124,13 @@
 	- ![Cookies](./Images/Cookies.png)
 - Cookies can be used to track users, as a server can determine which web pages a user visits based on the requests associated with their cookie identifier
 	- If a user registers to the website, then their personal information (name, email, etc.) can be used to even further identify the user in relation to their cookie identifier
+	- **Third-party cookies** can also be used to track user behavior across multiple websites without the user ever choosing to visit the tracker site
+		- A website of which a user visited and acquired a **first-party cookie** from may refer a third-party company (typically ad companies), and this first-party company will give a cookie to the user on the third-party company's behalf
+		- This third-party cookie can then track the user on other websites where they are also referred on (so websites where the company may run ads on)
+		- With this information, the third-party cookie company provides the data to the first-party provider, which they can use to provide targeted advertisement information based on the user's web browsing habits
 	- For this reason, cookies are controversial since there are concerns regarding selling the data associated with the users and their online activity
+		- Some browsers have disabled third-party cookies
+		- In the European Union, cookies that can identify an individual are considered personal data and are therefore subject to GDPR personal data regulations
 ### Web Caching
 - A **Web cache** or **proxy server** is a network entity that satisfies an HTTP request on behalf of an origin Web server
 	- The Web cache keeps a disk storage of recently requested objects
@@ -233,7 +241,7 @@
 	- In the authority section, records of other authoritative servers are listed
 	- In the additional section, other helpful records are provided (e.g. if there is a `MX` query, the additional section on a reply may also contain the `A` resource record associated with the same hostname)
 - To insert a record into the DNS database, one must consult a **registrar**, which is a commercial entity that verifies the uniqueness of a domain name, enters it into the DNS database, and collects a small fee
-### Peer-to-Peer File Distribution
+## Peer-to-Peer File Distribution
 - A very common use for the peer-to-peer (P2P) architecture is distributing a large file from a single server to a large number of hosts
 	- Under client-server, a *single server* must distribute a very large file to many hosts, which places large strain on the server
 	- Via peer-to-peer, much of this strain is spread about the peers
@@ -264,3 +272,68 @@
 				- As a result, this randomly chosen neighbor might become one of the user's top-four senders
 		- This system allows for peers uploading at compatible rates to find each other, while also allowing new peers to get chunks via the random, optimistically unchoked selections
 			- All neighbors other than the five (four top-senders, one random) do not receive chunks (until they might get lucky with the random choice)
+## Video Streaming and Content Distribution Networks
+- Video streaming accounts for a very significant amount of Internet traffic, and they are typically implemented via application-level protocols
+### Internet Video
+- Videos are a sequence of images, displayed at a constant rate (typically 24 or 30 frames per second)
+	- Video can be compressed, trading off video quality with bit rate (lower bit rate results in lower quality)
+		- Low-quality video is roughly 100 kbps, high-quality video is roughly 4 Mbps, and 4K streaming require a bitrate of more than 10 Mbps
+		- In order for a video to be continuously played on an end system, the network must provide an average throughput to the streaming application that is *at least* as large as the bit rate of the compressed video
+	- It is common for there to be *multiple* compressed versions of a video, at varying bit rates, so that clients can decide which version to watch as a function of the current available bandwidth
+### HTTP Streaming and Dash
+- In HTTP streaming, video is stored at an HTTP server, and when a user wishes to view the video a TCP connection is established with the server and the video is sent via a `GET` request
+	- Received bytes corresponding to the video are accumulated on the client-side (via a buffer), and once the size of this buffer exceeds an acceptable amount, the video playback  begins
+	-	As the video plays, the video application receives more bytes from the server and, when it is time to play those bytes, decompresses the corresponding frames to display on the screen
+- The issue with HTTP streaming is the fact that the *same* encoding of the video is sent, despite variations in potential bandwidth available; an alternative is **Dynamic Adaptive Streaming over HTTP (DASH)**
+	- The client dynamically requests chunks of video segments of a few seconds in length
+	- While doing so, if the amount of available bandwidth is high, the client will select chunks from the high-rate version but otherwise it may select chunks from the low-rate version
+	- Under this approach, clients with different Internet access rates stream video at different encoding rates, and they can even adapt the rate if the bandwidth changes during the viewing session
+	- The different video versions are stored in the HTTP server, under different URLs, and the different versions can be referenced via a **manifest file**
+		- So the client will first request the manifest file and then request the appropriate chunk via an HTTP `GET` according to the desired version's URL loated in the manifest file
+		- While the client downloads a chunk, the client measures the received bandwidth and determines which bitrate version to request for the next chunk
+### Content Distribution Networks
+- The massive amounts of video data is distributed to users around the world via **Content Distribution Networks (CDNs)**, which manage servers in multiple geographically distributed locations
+	- Copies of videos are stored in these servers with the goal of directing each user request for a video to the appropriate server location as to provide the best user experience
+	- **Private CDNs**, such as Google via YouTube, own the networks and the content distributed whereas **third-party CDNs**, such as Akamai, own the networks and distribute content on behalf of other companies
+- The **Enter Deep** philosophy deploys server clusters in access ISPs (e.g. residential ISPs), as the goal is to get as close to end users as possible in order to reduce delay
+	- Maintaining the clusters under this approach is fairly difficult
+- The **Bring Home** philosophy builds large clusters at a smaller number of sites, typically located at Internet Exchange Points where many ISPs are connected to
+	- This incurs lower maintenance overhead but at the cost of potentially higher delay
+- Upon placing clusters, the CDN will replicate its content across servers, typically via a *pull* strategy where if a client requests from a cluster not storing a specific video, the cluster will retreive the video and store it locally while streaming it to the client at the same time
+	- Videos that are popular will typically be stored at a particular cluster
+#### CDN Operation
+- When a host attempts to retrieve a specific video, the CDN must intercept the request in order to route it to the proper cluster
+- Most CDNs leverage DNS to intercept and redirect requests
+	- ![CDN Interception](./Images/CDN_Interception.png)
+	- A video may have a URL with a unique identifier - e.g. `video` in `http://video.netcinema.com/6Y7B23V`, and DNS can observe the identifier as indicative of routing the query to the CDN (so in this case, go to `netcinema`'s CDN rather than to `netcinema`'s server)
+	- Now that the query is relative to the CDN (rather than the original company that is using the CDN to host videos), the returned IP address of the CDN can be used establish a TCP connection between the user and the CDN, where a request for the video can be issued
+#### Cluster Selection Strategies
+- The mechanism for dynamically directing a client to the appropriate CDN cluster is known as the **cluster selection strategy**
+- During the aforementioned redirection, the CDN is able to learn the IP of the client's Local DNS via the DNS lookup, and this IP can be used for cluster selection
+- A common approach is **geographically closest**, where commercial geo-location databases used to map a local DNS IP to a geographic region are used for cluster selection
+	- This works well for most users, but can prove to be an issue in cases where the geographically closest cluster is *not* the closest cluster in terms of length or number of hops on the network path
+	- This is also an issue for end-users that use a remotely located DNS, which may not be close to their geographic region
+- CDNs can also perform **real-time** measurement of delay and loss performance between their clusters and clients, allowing for the best cluster to be determined based on current traffic conditions
+#### Google Infrastructure
+- 19 Mega Datacenters in North America, Europe, and Asia, with each datacenter having an order of 100,000 servers
+	- These centers serve dynamic, personalized content
+- 90 clusters in IXPs throughout the world, with each cluster consisting of 100s of servers
+	- These centers serve static content (like YouTube videos)
+- Hundreds of enter-deep clusters located within an access ISP, with each cluster consisting of 10's of servers on a rack
+- All of the datacenters and clusters owned by Google are typically networked together
+	- A user's query may go to an enter-deep cache to quickly provide them content while at the same time going to Google's private network to retrieve personalized search results - e.g. a local cache for a YouTube video and then Google's private cluster for the recommendations
+#### Netflix
+- Netflix utilizes Amazon cloud and its own private CDN 
+- The Amazon cloud servers typically handle content processing 
+	- A movie is uploaded to the Amazon cloud servers, where code is run to create various formats of the movie to support different platforms and bitrates
+	- These versions are then uploaded to Netflix's private CDN
+- Netflix's CDN has clusters both in IXPs and in access ISPs
+	- The servers in these IXPs and ISPs typically do not use pull-caching but instead are populated during off-peak hours by Netflix
+		- For servers that cannot hold the entire Netflix library, Netflix will typically push the most popular videos, determined on a day-to-day basis
+- The Netflix web interface is hosted via Amazon cloud, so the software running on Amazon's servers first determine which CDNs have copies of a particular movie and then determine the best of these CDN servers to use for the client
+	- Netflix utilizes a proprietary version of DASH, so the CDN will send the client a manifest file so that it can request the appropriate bitrate video
+### YouTube
+- Google utilizes its own private CDN to distribute YouTube videos, with clusters installed in various IXPs and ISPs
+- Google utilizes pull caching and DNS redirect strategies for its delivery
+	- It also determines the best CDN to serve content from via the lowest round-trip time between the client and clusters
+- YouTube does not employ DASH but instead HTTP streaming, requiring a user to manually select a video version (that stays the same throughout)
