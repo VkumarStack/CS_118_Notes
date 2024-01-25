@@ -43,3 +43,47 @@
 		- This is an example of the **end-to-end** argument in system design, as error-detecting at lower levels is redundant or of less value compared to error-detecting at higher levels
 	- Although UDP *checks* for errors, it does not *recover* errors - TCP does so instead
 - ![Figure 3.7](./Images/UDP_Segment_Structure)
+## Principles of Reliable Data Transfer
+- In a **reliable data transfer protocol**, no transferred data bits are corrupted or lost and are delivered *in the order sent*
+	- This can be inherently difficult to implement because the layer *below* reliable data transfer protocol may be unreliable
+### rdt2.0: Data Transfer over a Channel with Bit Errors
+- Assuming, for now, that all packets are *received* but may be *corrupted*, the issue of bit errors can be addressed via **positive acknowledgements (ACK)** and **negative acknowledgements (NAK)**, whereas the former is returned by the receiver to indicate that a packet has been received properly whereas the latter is returned by the receiver to indicate that the packet should be retransmitted
+	- Reliable data transfer protocols based on retransmission are known as **Automatic Repeat reQuest (ARQ) protocols**
+- Packet corruption can be detected via checksums or other similar techniques - regardless of the technique, this involves additional bits on the packet
+- ![Figure 3.10](./Images/Bit_Error_Reliable.png)
+	- This is a **stop-and-wait** protocol, as the sender *cannot* get more data from the upper layer to send until it receives an acknowledgement
+	- This protocol has a flaw in that it does not account for the case in which the `ACK` or `NAK` control packets themselves become corrupted
+- To account for the `ACK` or `NAK` packets being corrupted, it is necessary to include a checksum for such packets *and*, upon the sender receiving a corrupted `ACK` or `NAK` response, to resend the current data packet
+	- If the packet is *resent*, however, the receiver may not know whether the packet is a new packet or just a retransmission, so it is also necessary to have a **sequence number** field for the data packets as to check whether a received packet is a retransmission or not
+		- For a stop-and-wait protocol, only a 1 bit sequence number is necessary, as the bit can be used to *alternate* sequences
+- ![Figure 3.11](./Images/Bit_Error_V2_Sender.png)
+	- ![Figure 3.12](./Images/Bit_Error_V2_Receiver.png)
+	- The sender will retransmit on corruption (either via the data or the control packets) or on an explicit `NAK`, and will alternate between sending a `0` and `1` state to ensure there is in ambiguity on retransmissions
+	- Likewise, the receiver will check to make sure the sequence number matches and that the data itself is not corrupt (and otherwise send a `NAK`) , also alternating between the sequence number states 
+- Alternatively, instead of sending a `NAK`, instead an `ACK` could be sent for the last received packet - so a two `ACK`'s for the same packet (based on the sequence number) acts as a `NAK` and therefore simplifies in the state machine
+	- ![Figure 3.13](./Images/Bit_Error_No_ACK_Sender.png)
+	- ![Figure 3.14](./Images/Bit_Error_No_ACK_Receiver.png)
+### rdt3.0 Data Transfer over a Channel with Packet Loss
+- Packet loss can be detected via a **timer** on the sender-side, and upon a **timeout**, the packet can be retransmitted by the sender
+	- The sender starts a timer each time a packet is sent and if an `ACK` is received before a timeout, the timer can be stopped - otherwise, it is assumed that the packet was lost and thus it is resent
+		- It may not necessarily be the case that the packet is lost on a timeout - it could just take a long time to be sent or it could even be possible that the packet was sent properly but the return `ACK` was lost (or took too long)
+- ![Figure 3.15](./Images/Bit_Error_Timer.png)
+- ![Figure 3.15](./Images/Bit_Error_Timer_Example.png)
+### Pipelined Data Transfer Protocols
+- Using an **stop-and-wait protocol** is inherently slow given that the sender must wait for the current packet to send and then receive an `ACK` before sending the next packet
+	- This has very poor **utilization** of the sender's channel: $U_{sender} = \frac{L/R}{RTT + L/R}$
+- A better approach is one that is **pipelined**, allowing for many packets to be sent at once
+#### Go-Back-N (GBN) Protocol
+- In the **Go-Back-N protocol**, the sender can send multiple packets without waiting for acknowledgement, but is limited to having no more than $N$ unacknowledged packets in the pipeline
+	- This can be viewed as a **sliding-window protocol**
+		- ![Figure 3.19](./Images/GBN_Sliding_Window.png)
+- FSM:
+	- ![Figure 3.20](./Images/GBN_Sender.png)
+	- ![Figure 3.21](./Images/GNB_Receiver.png)
+- An acknowledgement in GBN is viewed as a **cumulative acknowledgement**, which means that it indicates all packets *up to and including n* have been correctly received
+	- On a timeout event, all packets that have been *previously sent but not acknowledged* (`base` to `nextseqnum - 1`) are resent
+	- There is only a single timer, acting as a timer for `base`
+- The receiver will acknowledge correctly delivered, in-order packets with the corresponding sequence number
+	- For incorrect or out-of-order packets, the receiver will acknowledge the most recently delivered in-order 
+	- The out-of-order packets are discarded, since they will be resent later on anyways by the sender on a timeout event - there is no need for the receiver to buffer the out-of-order packets as a result
+- ![Figure 3.22](./Images/GNB_Example.png)
