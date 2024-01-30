@@ -87,3 +87,126 @@
 	- For incorrect or out-of-order packets, the receiver will acknowledge the most recently delivered in-order 
 	- The out-of-order packets are discarded, since they will be resent later on anyways by the sender on a timeout event - there is no need for the receiver to buffer the out-of-order packets as a result
 - ![Figure 3.22](./Images/GNB_Example.png)
+#### Selective Repeat (SR)
+- The GBN protocol can retransmit a large amount of packets, which can fill a connection pipeline with unnecessary retransmissions
+- The **selective repeat (SR) protocol** only retransmits packets that are suspected of being in error
+	- Doing so requires the receiver acknowledging *each packet individually*
+- This protocol still maintains a window of size *N* to limit the number of unacknowledged packets
+	- ![Figure 3.23](./Images/SR_Window.png)
+- The receiver acknowledges a correctly received packet regardless of its order, and takes to ensure that out-of-order packets are buffered
+	- Once lower sequence number packets arrive to fill the gap in packet ordering, these packets can be sent in a batch to the upper layer
+- Protocol:
+	- ![Figure 3.24](./Images/SR_Sender.png)
+	- ![Figure 3.25](./Images/SR_Receiver.png)
+		- The receiver should still reacknowledge already received packets with sequence numbers below the current window because otherwise the sender would not be able to move its window forward
+- In general, transfer protocols - whether it be GBN or SR - assume that packets are not reordered within the channel between the sender and receiver - but this can actually be the case with network channels
+	- A network can be thought of as buffering a packet and then spontaneously emitting them in the future
+	- To guard against these duplicate packets, especially since sequence numbers used in protocols are finite (so they are reused, and a duplicate packet with the same sequence number as a new data packet arriving first can cause the new data packet to never be truly acknowledged), packets are typically given a *time-to-live* field
+		- A typical time to live field is *three minutes*
+## Connection-Oriented Transport: TCP
+- TCP is a **connection-oriented** protocol, implying that it requires the *end systems* to maintain state variables associated with the connection
+	- Only the *end systems* maintain the connection state - the intermediate routers are unaware of TCP
+- A TCP connection is initially established via a **three-way handshake**
+	- After this handshake, a server application passes the data that it will send to the TCP **send buffer**, which directs segments to the **receive buffer** on the client side, and this receive buffer eventually passes the data upwards to the client application
+	- The maximum amount of data that can be placed in a segment (taken from the send buffer) is limited by the **maximum segment size (MSS)**, which is determined by the length of the largest link-layer frame that can be sent by the sender - this is the **maximum transmission unit (MTU)**
+		- From the MTU, the MSS is set such that a TCP segment plus the TCP/IP header will fit in this frame
+### TCP Segment Structure
+- Large files are typically broken up into chunks of size MSS
+- ![Figure 3.29](./Images/TCP_Segment.png)
+	- The 32-bit **sequence number field** and the 32-bit **acknowledgement number field** are used to ensure reliable data transfer
+	- The 16-bit **receive window field** is used for flow control
+	- The 4-bit **header length field** specifies the length of the TCP header in 32-bit words, as the header length can vary due to the options field
+	- The **options field**, which is optional and variable-length, is used for purposes such as negotiate a MSS 
+	- The **flag field** contains 6 bits
+		- The **ACK bit** indicates that the value carried in the acknowledgement field is valid (there is an actual acknowledgement)
+		- The **RST**, **SYN**, and **FIN** bits are used for TCP connection setup and closing
+		- The **CWR** and **ECE** bits are used for congestion notification
+		- The **PSH** bit indicates that the receiver should pass the data to the upper layer immediately
+		- The **URG** bit indicates that there is data that the sending-side has marked as urgent
+			- The location of this urgent data is indicated by the 16-bit **urgent data pointer field**
+#### Sequence Numbers and Acknowledgement Numbers
+- TCP views data as an unstructured, ordered sequence of bytes
+	- With this in mind, sequence numbers are *not* in terms of segments but rather in terms of *bytes* in the underlying data stream
+	- The **sequence number** for a segment is the *byte-stream* number of the first byte in that segment
+		- Example: For a MSS of 1000 bytes, the first segment of a (large) file will have sequence number 0, the next one will have sequence number 1000, then 2000, and so forth
+	- These sequence numbers are inserted in the sequence number field of the TCP header
+- The **acknowledgement number** is the sequence number of the *next byte* that a receiver expects from a sender
+	- Example: If a client has received bytes 0 to 535, its acknowledgement number to the server will be 536, because it expects a segment starting with byte 536
+	- TCP utilizes **cumulative acknowledgements**, so only bytes up to the first missing byte in the stream is acknowledged
+		- Example: If a client has received bytes 0 to 535 *and* bytes 900 to 1000, it will only acknowledge the first segment by returning an acknowledgement number of 536. 
+	- If out-of-order segments are received, it is up to the implementation to decide what to do with them - in practice, the receiver keeps the out-of-order segments and usually waits for a short amount of time for the missing "gaps" to arrive
+- The initial sequence numbers are typically initialized to *random values* to minimize any possible errors arising from an already-existing segment in the network with the same sequence number 
+- Since TCP is a **fully duplex connection**, meaning that a hosts can send data both ways, the client and servers will have their *own* starting sequence numbers
+	- With this in mind, it is common for acknowledgements to be **piggy-backed** on actual data segments (rather than just sending an acknowledgement alone) for two-way communications
+	- ![Figure 3.31](./Images/TCP_Telnet_Example.png)
+### Round-Trip Estimation Time and Timeout
+- Timeout mechanisms are used for the purpose of segment transmissions, but this requires determining the *length* of this timeout interval
+	- This requires estimating the RTT of the connection
+- The `SampleRTT` for a segment is the amount of time between when the segment is sent and when the segment is acknowledged
+	- Most TCP implementations take only one `SampleRTT` measurement at a time, which results in a new value of `SampleRTT` approximately once every RTT
+- The `EstimatedRTT` is calculated via an **exponential weighted moving average**
+	- $EstimatedRTT=(1-\alpha)(EstimatedRTT) + \alpha(SampleRTT)$
+		- Typically $\alpha$ is set to be 0.125
+	- This weighted average puts more emphasis on *recent samples* than old samples, but still ensures stability via an average
+- The variability of the RTT is measured as:
+	- $DevRTT = (1-\beta)DevRTT + \beta|SampleRTT - EstimatedRTT|$
+- With these values, the timeout interval is set to be:
+	- `TimeoutInterval = EstimatedRTT + 4 * DevRTT`
+	- The initial timeout recommended to be set to 1 seconds
+	- On a timeout, the timeout is set to be *double* the previous timeout to avoid a premature timeout
+		- In the cases where there is no timeout, the timeout interval is set according to the aforementioned calculation
+### Reliable Data Transfer
+- In practice, TCP maintains only a *single timer*, as it  avoids the overhead associated with multiple timer interrupts
+- Pseudocode:
+	-     NextSeqNumber=InitialSeqNumber
+		  SendBase=InitialSeqNumber
+		  loop (forever) {
+			  switch(event)
+				  event: data received from application above
+					  create TCP segment with sequence number NextSeqNum
+					  if (timer currently not running)
+						  start timer
+					  pass segment to IP
+					  NextSeqNum+=NextSeqNum+length(data)
+					  break;
+				  event: timer timeout
+					  retransmit not-yet-acknowledged segment with smallest sequence number
+					  start timer
+					  break;
+				  event: ACK is received, with ACK field value of y
+					  if (y > SendBase) {
+						  SendBase=y
+						   if (there are currently any not yet acknowledged segments)
+							   start timer
+					  }
+					  else {
+						  increment the number of duplicate ACKs received for y
+						  if (number of duplicated ACKs received for y == 3)
+							  // Fast retransmit
+							  resend segment with sequence number y
+					  }	  
+		  }
+ - If a segment is lost and the timeout period is relatively long, there may be increased delay if no measures are taken	
+	 - A sender can often detect packet loss before a timeout occurs by noting **duplicate ACKs**
+	 - If an out-of-order segment arrives, the receiver will acknowledge the last *in-order* byte of data received (not the out-of-order segment) - this is a duplicate ACK
+		 - If a segment is lost, then the subsequent segments will arrive but the acknowledgements will only be for the lost segment (relative to the ordering), so the duplicate ACK will be returned many times
+	 - On three duplicate ACKs, a **fast retransmit** occurs, since it is assumed that the segment is lost - this retransmits *without* needing to wait for the timer
+	 - ![Figure 3.37](./Images/Fast_Retransmit.png)
+### Flow Control
+- The receiving side will place data that is correct and in-order in the receive buffer, but the application may not necessarily read from this buffer immediately
+	- Since the buffer is fixed length, it may be overwhelmed if too much data is sent while there is not enough time to read it all, hence why **flow control** is necessary
+- The *sender* maintains a variable known as the **receive window**, giving them an idea of how much free space is available for the receiver
+- The *receiver* calculates `rwnd` and includes it in the window field of the TCP segment to be sent to the  *sender*
+	- `rwnd = RcvBuffer - [LastByteRcvd - LastByteRead]`
+- The sender keeps track of `LastByteSent` and `LastByteAcked` and ensures that `LastByteSent - LastByteAcked <= rwnd`
+	- If `rwnd` is 0, at least one byte should still be sent as otherwise the messages will *stall* (the receiver has cleared up space in its buffer, but since the sender is not sending any more bits the receiver can no longer communicate the new `rwnd` without any incoming messages first)
+### TCP Connection Management
+- On establishing a connection:
+	- The client sends a special TCP segment to the server, with this segment having the `SYN` bit set to 1 and containing an initial sequence number (randomized) in the sequence number field
+	- Once the SYN segment arrives, the server allocates the proper buffers and variables associated with the connection and returns a segment with the `SYN` bit set to 1, the acknowledgement field set to the client's initial sequence number plus 1, and the sequence number field set to the *server's* initial sequence number (randomized)
+	- Once the client receives the SYNACK segment, it allocates its own buffers and variables and finally sends an acknowledgement segment to the server, with acknowledgment number being the server's initial sequence number plus 1
+- On ending a connection:
+	- The client sends a message with the `FIN` bit set to 1
+	- The server sends an acknowledgement to the aforementioned segment
+	- The server then sends its own shutdown segment, with the `FIN` bit also set to 1
+	- The client acknowledges this
