@@ -146,6 +146,12 @@
 	- The Web cache, when storing objects, also stores the last-modified date, and, upon future request of an object, sends a conditional GET with the stored last-modified date
 		- If the origin server responds to the cache that the object has not been modified, then it goes ahead and sends its cached copy to the requester
 		- Otherwise, if the object has been modified, the cache will fetch a fresh copy, store it, and return that copy to the requester
+- Example: Consider an access link rate of 1.54 Mbps, the RTT from an institutional router to the server being 2 seconds, the web object size being 100k bits, and the average request rates from the browsers to origin servers being 15 req/sec
+	- The average data rate to browsers is 1.50 Mbps ($15 * 100k$ bits), and so the access link utilization is ($1.5 / 1.54  = 0.97$)
+		- There are very high queueing delays
+	- The end-end delay is the Internet delay + access link delay + LAN delay, and since the access link delay is very congested, it will contribute most to the end-to-end delay
+	- One approach can be to buy a faster access link, but this is very expensive - a different approach, which is less expensive, is to install a web cache
+		- If the cache hit rate is 0.4, then only 60% of requests need to be satisfied over the server: $0.6 * 1.50 Mbps = 0.9 Mbps$, so the new access link utilization is 0.58 (0.9 / 1.54)
 ### HTTP/2
 - HTTP/2 was introduced with the goals of enabling request and response multiplexing over a *single* TCP connection, providing request prioritization and server push, and provide efficient compression of header fields
 	- HTTP/1 typically uses persistent TCP connections, but most Web pages suffered from an issue known as **head of line (HOL) blocking**
@@ -159,6 +165,7 @@
 	- The client can also state the dependency of messages (on other messages) so that these dependencies are accounted when the server sends frames
 - HTTP/2 also implements *server push*, where a server can send *multiple* responses for a single client request (without needing to wait for the client to send multiple other requests)
 - HTTP/3 is currently being discussed, with the intention to replace the underlying transport layer protocol with UDP rather than TCP
+	- The goal is also to add security, per-object error- and congestion-control
 ## Electronic Mail in the Internet
 - Email makes use of the **Simple Mail Transfer Protocol (SMTP)**
 	- **User agents** (such as Outlook, Gmail, etc.) allow users to read, reply to, forward, and send messages to the **mail server**, which are placed in the server's outgoing mail queue to be sent *directly* to another mail server - from which the recipient user retrieves the message from their corresponding mailbox

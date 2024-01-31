@@ -27,7 +27,7 @@
 - In the context of TCP, which is a connection-oriented (via an initial handshake) protocol, multiplexing involves using `(Source IP, Source Port, Destination IP, Destination Port)` to identify the appropriate socket to pass a message in to
 	- There is an initial connection-establishment socket, which, upon accepting a connection, results in the creation of a new socket based on the source port number, the IP address of the source, the destination port number, and the IP address of the destination
 	- This implies that differently sourced segments with the *same destination IP address and port* will not necessarily go to the same socket, since sockets are based on the source IP address and port
-	- ![Figure 3.5](./Images/TCP_Multiplexing)
+	- ![Figure 3.5](./Images/TCP_Multiplexing.png)
 ## Connectionless Transport: UDP
 - UDP is based on being lightweight, and so it only provides bare minimum functionality: multiplexing/demultiplexing and check summing
 - Many application-layer protocols (e.g. DNS) may leverage UDP for a variety of reasons:
