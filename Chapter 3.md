@@ -42,7 +42,7 @@
 	- Checksums are necessary at the transport level because although many link-layer protocols provide error checking, there is no guarantee that *all* link-layer protocols do so
 		- This is an example of the **end-to-end** argument in system design, as error-detecting at lower levels is redundant or of less value compared to error-detecting at higher levels
 	- Although UDP *checks* for errors, it does not *recover* errors - TCP does so instead
-- ![Figure 3.7](./Images/UDP_Segment_Structure)
+- ![Figure 3.7](./Images/UDP_Segment_Structure.png)
 ## Principles of Reliable Data Transfer
 - In a **reliable data transfer protocol**, no transferred data bits are corrupted or lost and are delivered *in the order sent*
 	- This can be inherently difficult to implement because the layer *below* reliable data transfer protocol may be unreliable
@@ -79,14 +79,14 @@
 		- ![Figure 3.19](./Images/GBN_Sliding_Window.png)
 - FSM:
 	- ![Figure 3.20](./Images/GBN_Sender.png)
-	- ![Figure 3.21](./Images/GNB_Receiver.png)
+	- ![Figure 3.21](./Images/GBN_Receiver.png)
 - An acknowledgement in GBN is viewed as a **cumulative acknowledgement**, which means that it indicates all packets *up to and including n* have been correctly received
 	- On a timeout event, all packets that have been *previously sent but not acknowledged* (`base` to `nextseqnum - 1`) are resent
 	- There is only a single timer, acting as a timer for `base`
 - The receiver will acknowledge correctly delivered, in-order packets with the corresponding sequence number
 	- For incorrect or out-of-order packets, the receiver will acknowledge the most recently delivered in-order 
 	- The out-of-order packets are discarded, since they will be resent later on anyways by the sender on a timeout event - there is no need for the receiver to buffer the out-of-order packets as a result
-- ![Figure 3.22](./Images/GNB_Example.png)
+- ![Figure 3.22](./Images/GBN_Example.png)
 #### Selective Repeat (SR)
 - The GBN protocol can retransmit a large amount of packets, which can fill a connection pipeline with unnecessary retransmissions
 - The **selective repeat (SR) protocol** only retransmits packets that are suspected of being in error
