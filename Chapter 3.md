@@ -210,3 +210,94 @@
 	- The server sends an acknowledgement to the aforementioned segment
 	- The server then sends its own shutdown segment, with the `FIN` bit also set to 1
 	- The client acknowledges this
+## Principles of Congestion Control
+### The Causes and Costs of Congestion
+- Scenario 1: Two Senders, a Router with Infinite Buffers
+	- ![Figure 3.43](./Images/Congestion_Scenario_1.png)
+	- ![Figure 3.44](./Images/Congestion_Scenario_1_Graph.png)
+	- If both $A$ and $B$ are each sending data at a rate of $\lambda_{in}$ bytes per second, assuming there is no packet loss (since there is an infinite buffer), then the maximum *per-connection* $\lambda_{out}$ that is received by each of $C$ and $D$ is going to be $R/2$, where $R$ is the outgoing link capacity of the router
+	- This scenario incurs an unbounded delay because packets *accumulate* in the queue of the router (which has an assumed infinite buffer), causing each packet to have a longer and longer delay
+- Scenario 2: Two Senders and a Router with Finite Buffers
+	- ![Figure 3.45](./Images/Congestion_Scenario_2.png)
+	- ![Figure 3.46](./Images/Congestion_Scenario_2_Graph.png)
+		- a. If it is somehow possible that the host knows whether the router buffer is free, then it can choose to send packets only when the buffer is free
+			- There would be no packet loss in this case, so the throughput is the maximum as in the previous scenario ($R/2$)
+		- b. If sender retransmits only when they know *for certain* that the packet is lost (which is not realistic), then the throughput will be less than the aforementioned maximum
+			- The host can only send $R/2$ bytes per second through the link, but some of this data will be the original data and another portion of this data will be retransmitted, resulting in an overall less throughput
+		- c. If the sender retransmits prematurely for a packet that is delayed but not yet dropped (likely due to a timeout), then there will be even *less* throughput
+			- Half of the available $R/2$ throughput through the link is used to send original data and the other half is used to retransmit 
+			- This is clearly a waste of link bandwidth
+	- Because packets are now being dropped due to a finite router buffer, retransmissions must occur - so now the rate at which the transport layer sends segments is $\lambda_{in}'$, which includes the original data and the retransmitted data
+- Scenario 3: Four Senders, Routers with Finite Buffers, and Multihop Paths
+	- ![Figure 3.37](./Images/Congestion_Scenario_3.png)
+	- ![Figure 3.38](./Images/Congestion_Scenario_3_Graph.png)
+	- Consider the case of $A$ sending to $C$, which involves competing with the traffic of $B$ sending to $D$ at router 2
+	- As the load from $B$ to $D$ gets larger and larger, the amount of traffic from $A$ that successfully gets to $C$ gets smaller and smaller
+		- Eventually, the $A-C$ throughput goes to zero as router 2's buffer becomes filled with only $B-D$ packets
+	- In this scenario, the transmission capacity of router 1 was essentially wasted because all of the messages from $A$ that it passed on to router 2 eventually were dropped
+### Approaches to Congestion Control
+- *End-to-end* congestion control is done independent of the network layer; rather, end systems infer congestion levels (via packet loss through a timeout or duplicate ACKs) and adjust accordingly
+- *Network-assisted* congestion control incorporates feedback from routers (such as through a router informing the sender its maximum sending rate)
+	- The feedback can either be *directly* from the router to the sender, typically through a choke packet, or it can be indirectly by having the feedback be sent to the *receiver* of the packet, which then returns the information to the *sender* (typically during an acknowledgement)
+## TCP Congestion Control
+### Classic TCP Congestion Control
+- Classic TCP congestion control is handled *end-to-end*: if the sender perceives little congestion on the path to the receiver, it increases its send rate, and otherwise it reduces its send rate
+- A TCP connection keeps track of a **congestion window**, `cwnd`, which acts as a constraint (similar to the receive-window) on the rate at which a sender can send traffic into the network
+	- `LastByteSent - LastByteAcknowledged <= min{cwnd, rwnd}`
+		- Assume `rwnd` is much larger than `cwnd`, so the rate is dictated by the congestion
+	- Roughly every RTT, the sender can send `cwnd` bytes of data, so the rate is roughly `cwnd/RTT` bytes/sec
+- Congestion is detected via a loss event of either a packet timeout or a triple duplicate ACK
+	- Non-duplicate acknowledgements are indicative that there is no loss, and therefore no congestion, which signals that the `cwnd` should increase 
+		- The rate at which `cwnd` increases is based on the rate at which acknowledgements are received 
+	- TCP *probes* for an appropriate transmission rate by increasing (according to acknowledgements) and decreasing (according to losses) its transmission rate accordingly
+- Algorithm:
+	- ![Figure 3.51](./Images/TCP_Congestion_Control_Algorithm.png)
+	- **Slow Start**: `cwnd` is initialized to a small value of 1 MSS (so the initial rate is `MSS/RTT`), and the value of `cwnd` is increased by one *per acknowledgement*
+		- Sending 1 MSS and receiving an acknowledgement now allows for 2 MSS to be sent, resulting in *two acknowledgements*, so now 4 MSS can be sent - this is an *exponential growth* in the window size
+		- Upon encountering a timeout loss, which is indicative of congestion, the process begins again (`cwnd` set to 1) but now with a threshold set to half of the reached `cwnd` - that is, `ssthresh = cwnd/2`
+			- When `cwnd` reaches this threshold, it enters *congestion avoidance mode*
+		- If a triple duplicate ACK is encountered, it enters *fast retransmit mode*
+	- **Congestion Avoidance**: Instead of doubling `cwnd` every RTT, it is instead *linearly increased* every `RTT`, typically by increasing `cwnd` by `(MSS*MSS)/cwnd`
+		- When a timeout occurs, the linear increase should *stop* (indicating that a maximum allowable transmission rate is approaching), and the algorithm should return to slow start with `ssthresh` set to half of the `cwnd` at the time of the timeout and `cwnd` back to 1 MSS
+		- If there is a triple duplicate ACK (indicating that the network is *still able to deliver segments* and thus may not be as congested), then the `ssthresh` is halved, but `cwnd` is set to this new value of `ssthres` (plus three) in order to enter *fast recovery*
+	- **Fast Recovery**: `cwnd` is increased by one MSS for every duplicate ACK received until a non-duplicate ACK is received - at which point it can return to congestion avoidance mode
+		- If a timeout is encountered during this process, then there is a return to slow start instead
+		- The point of fast recovery, which is an *optional* feature of the algorithm, is to avoid dropping down the `cwnd` on duplicate ACKs since they are not as indicative of congestion as a timeout is
+- TCP congestion control is an **additive-increase, multiplicative-decrease (AMID)** type of congestion control
+	- ![Figure 3.53](./Images/Congestion_Control_Graph.png)
+- TCP CUBIC adds on to TCP Reno (the implementation of congestion control with fast recovery) with a more efficient congestion avoidance phase
+	- If $W_{max}$ is the window size when a timeout was last detected and $K$ is the future point when the size reaches $W_{max}$
+	- The congestion window is increased as a cube of the distance between the current time $t$ and $K$ (if they are further apart, the window increases more quickly whereas if they are closer the window increases at a slower rate)
+		- Once $t$ exceeds $K$, it can begin to increase rapidly again
+	- ![Figure 5.54](./Images/TCP_Cubic.png)
+- For the most part, TCP Reno will mostly be in *congestion avoidance mode*, as the slow start mode is exponential and is therefore short lived
+	- If $W$ is the window size during which a timeout occurs, the transmission rate will vary from $W/(2*RTT)$ to $W/RTT$
+		- Since this is a *linear* increase, the average throughput is just $3W/4RTT = 0.75W / RTT$
+- Although slow start in *general* does not affect throughput, it can potentially affect delay for *short queries* made with TCP (such as a searchbar query)
+	- To mitigate this, **TCP splitting** is commonly used, where a client-to-server connection is instead replaced with a client-to-frontend-server connection, where the frontend is close to the client
+	- The frontend that the client is connected to maintains a persistent connection to the server (datacenter) and has a very large congestion window
+	- Although there is still a need for a slow start for the connection between the client and the frontend, the delay is shorter because of the proximity, and since the frontend has a large congestion window with the server, there is also negligible delay associated with the frontend-to-server slow start
+	- This approach allows for the delay to be roughly just the RTT between the client and server
+### Network-Assisted Explicit Congestion Notification and Delay-based Congestion Control
+-  With **explicit congestion notification (ECN)**, the network layer has two setting bits in the IP datagram header used to indicate congestion
+	- Usually routers indicate an *onset* of congestion
+	- One setting is used by a router to indicate that it is experiencing congestion, and this indication is carried to the *receiver*, which then relays the congestion indication to the *sender* by setting the `ECN` bit in the TCP acknowledgement segment header
+	- Another setting can be used to indicate to routers that the sender and receiver are `ECN` capable
+- With **delay-based** congestion control, the sender measures the RTT of the source-to-destination path for all acknowledged packets and compares $cwnd/RTT_{min}$
+	- If the sender-measured throughput is close to this value, then the sending rate can be *increased* since the path is not congested 
+	- Otherwise if the throughput is less than $cwnd/RTT_{min}$, then the path is likely congested and the sending rate should be *decreased*
+### Fairness
+- If there are $K$ connections passing through a bottleneck link with transmission rate $R$, then a *fair* congestion control mechanism ensures that each connection has a transmission rate of $R/K$
+- TCP's congestion control mechanism *is fair*, as the increasing and decreasing of transmission rate with multiple connections on a link eventually equalize 
+	- However, TCP can still be inherently unfair if a single application opens *multiple, parallel TCP connections*, as this would allow for a single host to get a larger fraction of a bottleneck link
+- UDP does not have congestion control, but rather sends data at a constant rate - for this reason, it is *not fair*
+## Evolution of Transport Layer Functionality
+- A novel transport layer protocol can be "created" at the application layer - one example of this is **Quick UDP Internet Connections (QUIC)**, which is an *application layer* protocol meant to be used by HTTP/3 in the future
+- QUIC is built on UDP but maintains a lot of functionality from TCP:
+	- QUIC is *connection-oriented*, like TCP, with an initial handshake required to set up a connection between endpoints and subsequent communications being *encrypted*
+		- The handshake process is done much more quickly
+	- QUIC allows for multiple *streams* be multiplexed through a single QUIC connection
+		- This mitigates the need to open multiple, parallel connections as with TCP
+	- QUIC ensures reliable, congestion-controlled data transfer
+		- Reliability is ensured on a *per-stream* basis
+		- Congestion control is based on TCP congestion control algorithms
