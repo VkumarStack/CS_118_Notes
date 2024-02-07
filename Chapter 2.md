@@ -224,6 +224,7 @@
 		- There must be an additional step going through the intermediate in this case
 - In a **recursive query**, the addresses are not returned each time to the local DNS server but rather are recursively forwarded each time until the IP address is found and returned bottom-up
 	- ![Recursive Query](./Images/Recursive_Query.png)
+	- Recursive queries are not typically used because they put a lot of stress on the *root DNS servers*
 - **DNS caching** is utilized to improve performance 
 	- In a query chain (when a DNS server receives a reply), it can cache the copy of the information it received 
 	- These cached items can be periodically removed (e.g. every 2 days)

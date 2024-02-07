@@ -264,7 +264,7 @@
 		- If a timeout is encountered during this process, then there is a return to slow start instead
 		- The point of fast recovery, which is an *optional* feature of the algorithm, is to avoid dropping down the `cwnd` on duplicate ACKs since they are not as indicative of congestion as a timeout is
 - TCP congestion control is an **additive-increase, multiplicative-decrease (AMID)** type of congestion control
-	- ![Figure 3.53](./Images/Congestion_Control_Graph.png)
+	- ![Figure 3.53](./Images/TCP_Congestion_Control_Graph.png)
 - TCP CUBIC adds on to TCP Reno (the implementation of congestion control with fast recovery) with a more efficient congestion avoidance phase
 	- If $W_{max}$ is the window size when a timeout was last detected and $K$ is the future point when the size reaches $W_{max}$
 	- The congestion window is increased as a cube of the distance between the current time $t$ and $K$ (if they are further apart, the window increases more quickly whereas if they are closer the window increases at a slower rate)
