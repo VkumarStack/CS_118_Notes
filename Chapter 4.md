@@ -62,3 +62,66 @@
 	- **Round-robin queuing** sorts packets into classes, but then alternates service among these classes in a round-robin fashion
 		- If the queuing is **work-conserving**, the scheduler will check the next available class for packets if the current class is empty - this ensures that it is always sending packets
 		- A generalized implementation, known as **weighted fair queuing** by assigning each class a weight and serving packets based on this weight (each class receives a fraction of service $w_i / \sum w_j$)
+## 4.2 - The Internet Protocol (IP): IPv4, Addressing, IPv6, and More
+### IPv4 Datagram Format
+- The **IPv4** protocol datagram is structured as follows:
+	- ![Figure 4.17](./Images/IPv4_Datagram.png)
+		- *Version Number*: Specifies the version of the IP protocol
+		- *Header Length*: IPv4 has *optional headers*, so the header length can be variable, hence the need to specify the header length
+			- Typically, the optional headers are omitted so the length of a header is 20 bytes
+		- *Type of Service*: Distinguishes different types of IP datagrams - e.g. real-time versus non-real-time traffic
+		- *Datagram Length*: Total size of the datagram (header + payload)
+		- *Identifier Flags, Fragmentation Offset*: Pertain to IP fragmentation, which is no longer done
+		- *Time-to-Live (TTL)*: Ensures datagrams do not circulate forever in the network; this value is decremented each time a datagram is processed by a router, and if it reaches zero it is dropped
+		- *Protocol*: Specifies the transport-layer protocol associated with the datagram 
+			- This field is typically only used upon reaching the destination
+		- *Header checksum*: Computes a checksum using each 2 bytes in the header (summing each of the 2 byte numbers in the header and then taking its 1's complement)
+			- The checksum is computed and checked at each router - if an error is detected, the datagram is dropped
+			- Since the time-to-live is part of the header and is updated each time it is processed by a router, the checksum must be recomputed each time as well (to account for a new time-to-live value)
+			- Although TCP/UDP also perform check summing, it is still necessary for IPv4 as other transport layer protocols may *not* use check summing and hence would rely on the error detection provided by IPv4
+		- *Data*: Most IP datagrams contain the *transport layer segment (usually TCP or UDP)* in the payload 
+### IPv4 Addressing
+- An IP address is not associated with a *host or router* but rather with an **interface** containing that host or router - view an interface as the *boundary* between a host/router and its outgoing links
+	- Since routers may have multiple outgoing links, it will have *multiple* IP addresses
+- In IPv4, addresses are 32 bits long and are expressed in **dotted decimal notation**, where each byte is written in decimal form and separated by a dot from the other bytes (e.g. address `193.32.216.9` in binary is `11000001 00100000 11011000 00001001`)
+- A **subnet** is a network interconnecting host interfaces and/or router interfaces, whether it be via an ethernet LAN, wireless access point, or some other means
+	- ![Figure 4.18](./Images/Subnet_Example_1.png)
+		- There are *three subnets* here, and each subnet shares a common *IP prefix* 
+		- In **subnet mask** notation, a subnet can be assigned an address based on this common prefix 
+			- e.g. `223.1.1.0/24` refers to the leftmost subnet, indicating that the leftmost 24 bits of the address (`223.1.1`) describe the subnet address and the remaining (32 - 24 = ) 8 bits describe a device *within the subnet*
+			- Any device *within the subnet* must match the subnet mask (so, for example, any device in the leftmost subnet must be of the form `223.1.1.xxx)`
+	- A router can interconnect *multiple subnets*
+		- ![Figure 4.20](./Images/Subnet_Example_2.png)
+			- Here, there are *six* subnets
+- Addressing with respect to the *global Internet* is done via **Classless Interdomain Routing (CIDR)**, which generalizes the notion of subnet addressing
+	- An (IPv4) address is divided into two parts, similar to subnet addressing, `a.b.c.d/x`, where `x` is the number of bits in the first part (leftmost) of the address
+	- The `x` significant bits (forming `a.b.c.d`) is the **prefix** of the address, and organizations are typically assigned blocks of contiguous addresses with a *common prefix*
+		- In the context of forwarding, routers outside of an organization's network will only consider the `x` prefix bits - this reduces the required size of forwarding tables
+		- Routers *within* an organization will only need to consider the remaining bits (32 - x), though these remaining bits may be subnetted even more within the organization
+	- **Address aggregation** refers to the practice of using a single prefix to advertise multiple networks (e.g. an ISP containing multiple organizations), though in the complex case where certain networks do not match a single prefix, it may be necessary to advertise multiple prefixes
+		- ![Figure 4.22](./Images/Address_Aggregation.png)
+- A special type of IP address is `255.255.255.255`, which is known as a *broadcasting address* - a datagram sent with this destination will deliver the data to *all hosts on the same subnet*
+#### Obtaining a Block Address
+- To obtain a block address, an organization would contact the ISP, which would provide addresses from its larger block of addresses to the organization
+- The ISP obtained its block of addresses from a global authority known as the Internet Corporation for Assigned Names and Numbers (ICANN)
+#### Obtaining a Host Address: The Dynamic Host Configuration Protocol
+- An organization can assign individual IP addresses to the host and router interfaces *within* the organization - this can be done manually or *dynamically* via **Dynamic Host Configuration Protocol (DHCP)**
+- DHCP can be configured so that a host receives the same IP address each time it connects to the network or a **temporary IP address** each time
+- DHCP also provides a host information about the subnet mask of the organization, the address of the first-hop (gateway router), the address of the local DNS server, and so forth
+- DHCP is very useful for network administrators, as it automates the assignment of IP addresses 
+	- e.g. A student with a laptop device that moves from a dorm to a classroom will move between different subnets, but DHCP is able to appropriately assign addresses in this scenario
+- DHCP is a client-server protocol; each subnet has a DHCP server that an arriving client communicates with
+	- ![Figure 3.24](./Images/DHCP.png)
+	- The client discovers this DHCP server via a **DHCP discover message**, in which the client sends a UDP packet to port 67 to the *broadcast destination IP address* (`255.255.255.255`) and source address `0.0.0.0`
+	- The receiving DHCP server(s) respond to the client with another *broadcast message* containing the proposed IP address of the client, the network mask, and an **address lease time**
+	- The client can respond to one of the server offers (if there are multiple DHCP servers that sent an offer) directly with a **DHCP request message**, and the server responds back with a **DHCP ACK** confirmation
+- One downside of DHCP involves the difficulty of maintaining a TCP connection as a host moves between different subnets (and therefore obtains different IP addresses which may hinder the TCP connection)
+#### Network Address Translation (NAT)
+- A simpler approach to IP address allocation is known as **network address translation (NAT)**
+- A NAT-enabled router provides a subnet interface to a network (usually a home network)
+	- Typically, the address space for the network is `10.0.0.0/24` is typically reserved for a **private network**
+- Although this address space is not *unique* outside of the private network (in the global network), the NAT-enabled router *does* have a unique IP facing the global network
+	- The NAT-enabled router assigns all connections leaving the private network its same IP address and distinguishes between these connections by assigning them a unique port number, which is stored in the **NAT translation table** for conversion
+- ![Figure 4.25](./Images/NAT_Translation.png)
+	- When data is *sent*, the NAT router replaces the source IP address with its own IP address and the source port with the port number associated with the private network on the NAT table
+	- When data is *received*, the NAT router replaces the destination IP address and port number with the appropriate entries from the NAT table
