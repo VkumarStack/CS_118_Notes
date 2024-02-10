@@ -125,3 +125,71 @@
 - ![Figure 4.25](./Images/NAT_Translation.png)
 	- When data is *sent*, the NAT router replaces the source IP address with its own IP address and the source port with the port number associated with the private network on the NAT table
 	- When data is *received*, the NAT router replaces the destination IP address and port number with the appropriate entries from the NAT table
+#### Firewalls and Intrusion Detection Systems
+- **Firewalls** are installed between a network and the Internet
+	- They inspect an incoming datagram and segment header fields and deny any suspicious datagrams from entering the internal network
+	- They can also block packets based on source and destination IP addresses
+- An **intrusion detection system** will perform even deeper packet inspections, examining both the header and payload of the packet and comparing them to a database of packet signatures from known attacks
+	- Intrusion detection systems will create alerts on suspicious packets; intrusion prevention systems will actually block those suspcious packets
+### IPv6
+- The shrinking address space associated with IPv4 motivated the need for IPv6
+#### IPv6 Datagram Format
+- IPv6 addresses were increased from 32 bits to 128 bits
+- Many header options were dropped or made optional, so the header is a *fixed-size* of 40 bytes, which allows for faster processing by a router
+- Packets can be labeled as belonging to particular **flows**, of which may require special handling (e.g. real-time services) 
+- ![Figure 4.26](./Images/IPv6_Datagram.png)
+	- *Version*: Specifies version, though additional measures must be taken to ensure backwards compatibility with IPv4
+	- *Traffic Class*: Used to give priority for certain datagrams
+	- *Flow Label*: Identifies the flow of the datagram
+	- *Next Header*: Indicates which transport-layer protocol for which the contents of the datagram will be delivered
+	- *Hop Limit*: Same as time-to-live
+- IPv6 does not utilize header checksums, as the checksum functionality is already implemented in transport layer protocols (e.g. UDP and TCP) and is therefore redundant in context of the network layer
+	- This was also motivated by the removing cost associated with having to recompute the header check sum each time the time-to-live (or hop) field 
+#### Transitioning from IPv4 to IPv6
+- The most common approach to ensuring compatibility between IPv4 and IPv6 is to utilize **tunneling**
+	- An IPv6 node will take the entire IPv6 datagram (including the headers) and put it into the payload of an *IPv4* datagram, sending this datagram through an IPv4 node with the destination set to another IPv6 node (on the other side of the IPv4 "tunnel")
+	- The datagram will go through the IPv4 router(s) until it reaches the IPv6 router, which will determine that the IPv4 datagram contains an IPv6 datagram, extract it, and send it onwards as it normally would under the IPv6 protocol
+- ![IPv6 Tunneling](./Images/IPv6_Tunneling.png)
+## Generalized Forwarding and SDN:
+- The **match-plus-action** paradigm is common in computer network design, where a "match" associated with a certain header field value incurs an "action" associated with that field (such as forwarding, load balancing, blocking a packet, etc.)
+- A match-plus-action table (also known as a **flow table**) is typically computed, installed, and updated by a remote controller, and this table will contain information about header fields to which an incoming packet is matched, a set of counters that are updated as packets are matched to flow table entries, and a set of actions to be taken when a packet matches a flow table entry 
+### Match
+- A match can be made *across* different protocol layers (link, network, transport)
+- Under OpenFlow, a standard for match-plus-action flow tables, various fields can be matched:
+	- ![Figure 4.29](./Images/OpenFlow_Standard.png)
+	- The ingress port is the input port on the packet switch (or router)
+	- Flow table entries can be wildcarded
+	- Entries have priorities, so a packet matching multiple entries will match the one with highest priority
+	- Not all fields can be matched, such as TTL or datagram length, due to the complexity associated with implementing the matching of such fields
+### Action
+- There are many possible actions that can be performed upon a match
+- A *forward* action can forward a packet to a specific physical output port, broadcasted over all ports, multicasted over a set of ports, or even be sent to the remote controller for the device
+- A *drop* action typically occurs when a packet does not match any entries in the flow table
+- A *modify-field* action may re-write certain fields before forwarding the packet
+### Examples
+- ![Figure 4.30](./Images/OpenFlow_Example.png)
+- **Simple Forwarding**: Consider forwarding packets that have their source as h5 or h6 and destination to h3 or h4 from routers s3 to s1 and then from s1 to s2
+	- On S3:
+		- `Match: IP Src = 10.3.*.*; IP Dst = 10.2.*.*`; `Action: Forward(3)`
+	- On S1:
+		- `Match: Ingress Port = 1; IP Src = 10.3.*.*; IP Dst = 10.2.*.*`; `Action: Forward(4)`
+	- On S2: 
+		- `Match: Ingress Port = 2; IP Dst = 10.2.0.3`; `Action: Forward(3)`
+		- `Match: Ingress Port = 2; IP Dst = 10.2.0.4`; `Action: Forward(4)`
+- **Load Balancing**: Consider having datagrams from h3 with destination 10.1.\*.\* forwarded to s1 while datagrams from h4 with destination 10.1\*.\*. forwarded to s3; in this case, s2 acts as a *load balancer*, appropriately directing traffic between the two possible links so that all the traffic does not immediately go through s1 (though the traffic from s3 must still go to s1 eventually)
+	- On S2:
+		- `Match: Ingress Port = 3; IP Dst = 10.1.*.*`; `Action: Forward(2)`
+		- `Match: Ingress Port = 4; IP Dst = 10.1.*.*`; `Action: Forward(1)`
+- **Firewalling**: Consider having s2 want to receive only traffic sent from hosts attached to s3 - this is a *firewall*
+	- On S2:
+		- `Match: IP Src = 10.3.*.*; IP Dst = 10.2.0.3`; `Action: Forward(3)`
+		- `Match: IP Src = 10.3.*.*; IP Dst = 10.2.0.4`; `Action: Forward(4)`
+- Flow tables are useful because of the *programmability* they offer
+## Middleboxes
+- **Middleboxes** are intermediary devices that perform functionality different from standard IP functionality on the data path between a host and destination
+	- Examples of middleboxes include web caches, TCP connection splitters, network address translation (NAT) routers, firewalls, and so forth
+- The rise of middleboxes go against the philosophy of separation of protocol stack layers, though they are a nonetheless needed part of it
+## Architectural Principles of the Internet
+- **IP Hourglass**: There can be various application, transport, and link layer protocols but there can only be *one* network layer protocol - the IP protocol
+- **End-to-End Argument**: Complete functionality for communication between two end points *require* those end points to contribute to such functionality
+	- Consider, for example, error checking
