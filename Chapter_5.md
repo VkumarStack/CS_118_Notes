@@ -85,3 +85,68 @@
 				- Since *z* is no longer using *y* to get to *x*, it unpoisons its reverse path, and indicates to *y* that actual distance to from *z* to *x* is 50
 			- After *z* updates and sends to *y*, router *y* will update its distance vectors so that $D_y(x) = 51$, but now *y* will also poison the reverse path and indicate to *z* that $D_y(x)=\infty$ since now *y* is using *z* to get to *x*
 			- Doing this prevents the long time to update *in this case*, but loops with three or more nodes may still suffer from the issue
+## Intra-AS Routing in the Internet: OSPF
+- In practice, a network is not simply a collection of interconnected routers, indistinguishable from each other, but rather a collection of **autonomous systems (ASs)**, which contain a group of routers under the same administrative control
+	- Typically, routers in an ISP and the links that connect them are a single AS
+- Routers *within* the same AS all have information about each other and run the same routing algorithm, known as an **intra-autonomous system routing protocol**
+### Open Shortest Path First (OSPF)
+- The **Open Shortest Path First (OSPF)** protocol uses the flooding of link-state information and Dijkstra's algorithm to determine the shortest path to all subnets from each router
+- How the link costs are chosen is up to the network administrator
+	- They can all be set to one to achieve minimum-hop routing
+	- Alternatively, they can be set to be inversely proportional to the link bandwidth to discourage traffic on low-bandwidth links
+- With OSPF, a router broadcasts information to *all* other routers in the AS, not just its neighboring routers
+	- There are broadcasts whenever there is a change in the link's state (like cost) and there are also periodic broadcasts to ensure robustness
+	- These broadcast advertisements are carried via IP and use an upper-layer protocol that implements functionality such as reliable data transfer and link-state broadcast
+- Advanced OSPF Features:
+	- Security: By default OSPF messages are not authenticated, but they can be authenticated to ensure that only trusted routers (like those in the same AS) can participate in the protocol
+		- This can be done via hashing secret keys that are configured in all routers in the AS
+	- Multiple Same-Cost Paths: If multiple paths have the same cost, then any can be used
+	- Integrated Support for Unicast and Multicast Routing
+	- Support for Hierarchy within a Single AS: An AS can be configured hierarchically into areas, each of which run its own OSPF algorithm and possess border routers to communicate information to other areas (usually through routers in the *backbone area*)
+## Routing Among the ISPs: BGP
+- Routing *across* an autonomous system requires making use of an **inter-autonomous system routing protocol**, with the one used across the Internet being the **Border Gateway Protocol (BGP)**
+### The Role of BGP
+ - Entries for a destination within the same autonomous system are determined by the intra-AS routing protocol
+ - With inter-AS routing, packets are not routed to a specific destination address but rather a prefix representing a subnet 
+	 - Forwarding table entries will be of the form *(x, I)*, where *x* is the prefix and *I* is an interface number for one of the router's interfaces
+ - BGP functions by enabling routers to obtain prefix reachability information from nearby autonomous systems through advertisement and by enabling routers to determine the relatively *best* routes to the prefixes
+### Advertising BGP Route Information
+- Within an autonomous system, a router can either be a **gateway router**, which sits on the edge of an autonomous system (and therefore connects to routers in other autonomous systems) or an **internal router**
+- To advertise reachability for prefix *x*, an autonomous system sends a message to nearby autonomous systems about the path, and these autonomous systems then send messages to *their* nearby autonomous systems, adding on to the advertised path
+	- e.g. A prefix *x* originating in AS3 can be advertised by AS3 to AS2 via the message `AS3 x`, and then AS2 can advertise this to AS1 via the message `AS2 AS3 x`
+	- Communication is done via routers, typically over semi-permanent TCP connections over port 179
+		- This connection, which sends BGP messages, is known as a **BGP connection**; an **external BGP (eBGP)** connection spans across ASs whereas an **internal BGP (iBGP)** connection spans within an AS
+	- Information is propagated using *both* iBGP and eBGP connections 
+		- ![Figure 5.9](./Images/iBGP_and_eBGP.png)
+### Determining the Best Routes
+- When a prefix is advertised across a BGP connection, the message also contains several **BGP attributes** - a prefix along with its attributes constitutes a **route**
+	- The `AS-PATH` attribute contains a list of the autonomous systems the advertisement has passed through (e.g. `AS2 AS3 x`)
+	- The `NEXT-HOP` attribute contains the IP address of the router interface that begins the `AS-PATH`
+		- In the previous example, for the path `AS2 AS3 x`, the `AS-PATH` field would be the IP address of router 2a
+- Using these attributes, BGP utilizes **hot potato routing**, where the best possible route chosen among many possible routes is the route that has the least cost to the `NEXT-HOP` router from the current router
+	- Example:
+		- ![Figure 5.10](./Images/Hot_Potato_Routing_Example.png)
+		- From router 1b, the least-cost intra-AS path to `NEXT-HOP` is the one that goes to router 2a, so router 1b's forwarding table will be configured to include *(x, I)*, where *I* is the interface on the least-cost path to router 2a
+- ![Figure 5.11](./Images/Hot_Potato_Routing.png)
+- In practice, BGP utilizes the following criteria for the best path:
+	- If a route has a **local preference** value on its attributes (which is typically set as a policy decision by the network administrator), then this route will be prioritized over others that go to the same prefix
+	- If there are ties with local preference, the route with the shortest `AS-PATH` is prioritized
+	- If there are ties with length of `AS-PATH`, then the shortest `NEXT-HOP` route is prioritized 
+### IP-Anycast
+- BGP has an additional use of implementing the IP-anycast service, which when content is replicated among many different servers in different geographical locations and users are served this content based on proximity
+	- DNS relies on IP-anycast
+- ![Figure 5.12](./Images/IP_Anycast_Example.png)
+	- The CDN assigns the same IP address to each of its servers and leverages BGP to advertise this IP address from each of its servers
+	- A router will receive *multiple route advertisements* for the same IP address (because each server advertises), but will select the *closest* one based on its routing algorithm
+	- Thus, a client requesting content can receive content from the closest geographical region 
+### Routing Policy
+- Routing policy can have more influence over the routes chosen compared to shortest path or hot potato routing
+- Example:
+	- ![Figure 5.13](./Images/BGP_Policy.png)
+	- Here, *x* is **multi-homed**, meaning it connects to *multiple* access ISPs
+		- However, *x* does not want to forward traffic on behalf of the ISPs, so it will not advertise paths to destinations to *B* or *C*
+			- Although *x* does know of a path to, for example, *y* in the form of *xCy*, it will not advertise this path to *B* because otherwise *B* might forward unwanted traffic destined to *y* via *x*
+	- Consider *B*, which is aware of the path *AW* 
+		- *B* will advertise *BAw* to its customer *x* so that *x* can route to *w* 
+		- There is a question, though, of whether *B* should advertise *BAw* to *C*, because if it did then *C* could route traffic to *BAw* and thus place more burden on *B*
+			- The general rule of thumb is that any traffic flowing across an ISP's backbone must either have a source or destination in the network that is a customer of that ISP (otherwise the ISP is allowing for a free ride of traffic through its routers)
