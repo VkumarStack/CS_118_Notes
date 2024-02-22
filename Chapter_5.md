@@ -150,3 +150,79 @@
 		- *B* will advertise *BAw* to its customer *x* so that *x* can route to *w* 
 		- There is a question, though, of whether *B* should advertise *BAw* to *C*, because if it did then *C* could route traffic to *BAw* and thus place more burden on *B*
 			- The general rule of thumb is that any traffic flowing across an ISP's backbone must either have a source or destination in the network that is a customer of that ISP (otherwise the ISP is allowing for a free ride of traffic through its routers)
+## The SDN Control Plane
+- SDN architecture is based on:
+	- *Flow-based forwarding*: Forwarding done by SDN-controlled switches is based on any number of header fields; the rules for forwarding are specified in the switch's *flow table*
+	- *Separation of data and control plane*: The data plane consists of switches that perform the forwarding whereas the control plane consists of the servers and controllers that manage the flow tables of these switches
+	- *Network control functions external to data-plane switches*: The control plane is implemented in *software* that is executed *remotely* from the switches
+		- Typically, there is an SDN controller and a set of network-control applications
+	- *A programmable network*: The network is programmable through network applications running in the control plane, typically through some set of APIs
+- ![Figure 5.14](./Images/SDN_Architecture.png)
+### SDN Controller and SDN Network-Control Applications
+- The *controller* portion of the SDN control plane has various functionality:
+	- It serves as a *communication layer* between the network-controlled devices and the SDN controller
+		- Communication may involve setting the flow tables of the devices as well as receiving information about locally observed events from devices (such as a switch going down) so that the controller has an accurate view of the network state
+		- Communication is typically done via OpenFlow or SNMP
+	- There is also a *state-management layer*, as the decisions made by the SDN control plane requires having information about the state of the network's hosts, links, switches, and so forth
+		- Flow tables typically contain counters, which can also be sent to the controller to keep track of state
+	- There is also an interface to the *network-control application layer*, which allows for network management applications (such as those implementing load balancers, proxies, etc.) 
+- SDN controllers are *logically centralized*, but in practice they are implemented via a set of distributed servers 
+- ![Figure 5.15](./Images/SDN_Controller.png)
+### OpenFlow Protocol
+- OpenFlow allows for a controller to communicate with network switches; this communication is done via TCP over port 6653
+- Typical OpenFlow messages:
+	- Controller to Switch:
+		- *Configuration*: Query and set a switch's configuration parameters
+		- *Modify-State*: Add/delete entries in the flow table
+		- *Read-State*: Read entries in the flow table (e.g. counters)
+		- *Send-Packet*: Send a specific packet out of a specified port at the controlled switch
+	- Switch to Controller:
+		- *Flow-Removed*: Inform the controller that a flow table entry has been removed
+		- *Port-Status*: Inform the controller of a change in port status
+		- *Packet-In*: Send a matched packet to the controller if the action specifies doing so
+### Case Studies:
+- OpenDaylight Controller:
+	- ![Figure 5.17](./Images/OpenDaylight.png)
+- ONOS Controller:
+	- ![Figure 5.18](./Images/ONOS_Controller.png)
+### Example
+- With SDN, routing can be done in a more centralized manner, as a network control application can use the API to the SDN controller to acquire a network graph and then perform Dijkstra's algorithm to compute the shortest paths in the network, which it can then send back to the SDN controller which then accordingly updates the flow tables of the switches
+	- If a switch, for instance, experiences a link failure, it can notify the SDN controller (`Port-Status`) via OpenFlow, and then this controller can notify the link-state manager which updates its database
+	- The network control application that manages routing can be notified of a link state change and can compute the new costs accordingly and send these costs to the flow table manager, which will then update the flow tables of the affected switches via OpenFlow
+## ICMP: The Internet Control Message Protocol
+- The **Internet Control Message Protocol** is used by hosts and routers to communicate network-layer information - typically information pertaining to errors
+- ICMP lies above IP, as the messages are carried inside IP datagrams
+- ![Figure 5.19](./Images/ICMP_Message_Types.png)
+- The Traceroute program is implemented using ICMP messages, as it sends a series of ordinary UDP messages to a destination with an increasing set of TTL fields
+	- When the *nth* datagram arrives at the *nth* router, the router will observe the TTL expiring and send ICMP error type 11
+	- The Traceroute program sends the UDP message with an unlikely destination port, so that when a datagram *does* arrive at the destination, it will be returned with ICMP error type 3 code 3
+	- As the ICMP messages are sent back, the host can estimate the RTTs over the routers
+## Network Management and SNMP, NETCONF/YANG
+### The Network Management Framework
+- ![Figure 5.20](./Images/Network_Management_Elements.png)
+	- The *managing server* is an application running in a centralized network management station in the network operations center
+		- It controls the collection, processing, analysis, and dispatching of network management information
+	- The *managed device* is a piece of network equipment that resides on a managed network (e.g. host, router, switch, etc.) and will typically have manageable components and configuration parameters
+	- Devices can have **configuration data**, which is device-specific information, **operation data**, which is information that the device acquires as it operates (e.g. immediate neighbors to a switch), as well as **device statistics**
+		- Device data is typically queried by the network manager
+	- A *network management agent* is a piece of software running in a managed device that communicates with the managing server and takes local actions in response to the server
+	- A *network management protocol* runs between the managing server and the managing devices
+- Common Ways to Manage a Network:
+	- **Command Line Interface**: A network operator can issue commands via a terminal to manage a network
+		- This approach is prone to error and does not scale well with large-sized networks
+	- **SNMP/MIB**: A network operator can query and set the data contained in a device's **Management Information Base (MIB)** using the **Simple Network Management Protocol (SNMP)**
+		- This approach requires managing the devices *individually*
+	- **NETCONF/YANG**: The NETCONF protocol is used to communicate **YANG** (a data modeling language used to model configurations) compatible actions to and from remote devices
+### The Simple Network Management Protocol (SNMP) and the Management Information Base (MIB)
+- The **Simple Network Management Protocol (SNMP)** is an application layer protocol to convey network-management control information between a server and an agent (on a device)
+	- Typically, requests involve retrieving or modifying a management information base (MIB) object associated with a device, though it is also common for an agent to send a *trap message* to a server so that a managing server is notified when an exceptional situation occurs (e.g. link interface going down)
+	- SNMP is typically run over UDP, and so it is up to the server to determine how to handle retransmissions
+	- ![Table 5.2](./Images/SNMPv3_Data.png)
+- A device's operational state data are represented as objects that gather together in a **management information base (MIB)** for that object
+	- An example of an object may involve a counter keeping track of the number of IP datagrams discarded at the router due to errors
+### The Network Configuration Protocol (NETCONF) and YANG
+- The **Network Configuration Protocol (NETCONF)** defines messages that allows a managing server to *retrieve, set, and modify configuration data at managed devices*, to *query operational data and statistics at devices*, and to *subscribe to notifications generated by managed devices*
+- Devices are controlled by managing servers by sending such devices configurations (in XML format) and activating the configuration at the managed device remotely
+	- These messages are sent over TCP (specifically a secure version that uses TLS)
+- ![Table 5.3](./Images/NETCONF_Operations.png)
+- **YANG** is the data modeling language used to specify the structure, syntax, and the semantics of network management data used by NETCONF
