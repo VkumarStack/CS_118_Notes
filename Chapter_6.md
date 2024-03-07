@@ -87,3 +87,62 @@
 	- The probability that a slot is *successful* (no collisions from other nodes and is not empty) is $p(1-p)^{N-1}$, since one node transmits and all other nodes (N - 1) do not transmit
 	- There are $N$ nodes, so the probability that *any* of the nodes are successful is $Np(1-p)^{N-1}$
 	- Finding the maximum efficiency yields $1/e = 0.37$, so the effective transmission rate of the channel is $0.37R$, which is not particularly effective
+ #### Carrier Sense Multiple Access (CSMA)
+- The **Carrier Sense Multiple Access / Collision Detection protocol** leverages **carrier sensing**, where a node listens to a channel and only transmits when there are no current transmissions in the channel
+	- If another node transmits at the same time, it also leverages **collision detection** to pick up on the interference and stop the transmission, waiting a random amount of time to repeat the sense-and-transmit cycle
+- Although the point of carrier sensing is to avoid a collision, it is not perfect due to **channel propagation delay**, hence the need for collision detection during the actual signal transmission
+	- ![Figure 6.12](./Images/CSMA_Diagram_1.png)
+		- Here, *D* does not sense any data be transmitted due to the propagation delay associated with channel *A*, so it begins transmitting its frame not knowing that doing so would result in a collision
+	- ![Figure 6.13](./Images/CSMA_Diagram_2.png)
+- Upon detecting a collision, there is a delay for a random amount of time before attempting to listen and retransmit
+	- This time interval should be short enough as to avoid an idle channel but still large enough so as to avoid collisions (in case two transmitting nodes choose the same random value and collide again)
+	- The interval is chosen via a **binary exponential backoff**, where a node that has experienced *n* collisions chooses a random value *K* from $\{0, 1, 2, ..., 2^n - 1\}$, and this *K* is used to scale the amount of time to wait (e.g. for Ethernet a node waits $512K$ bit times, which is the amount of time needed to a send a bit into the Ethernet)
+- This protocol has an efficiency of $\frac{1}{1+5d_{prop}/d_{trans}}$
+### Taking-Turns Protocol
+- ALOHA and CSMA do not have the property of ensuring each of the $M$ nodes have a throughput of $R/M$ - **taking-turns protocols** try to ensure this
+- In the **polling protocol**, a designated master node polls each node in a round-robin fashion
+	- The master node indicates to a node that it can transmit a maximum number of frames, and after these frames are transmitted, the master node moves on to the next node
+	- Issues with approach include the decreased efficiency associated with *polling delay* and the potential failure point associated with the master node
+- In the **token-passing protocol**, a special **token** is exchanged among nodes in a fixed order
+	- When a node has a token, it holds on to the token only if it has some frames to transmit (and then transmits these frames up to a maximum amount) and otherwise it passes the token to the next designated node according to the ordering
+	- While this has the advantage of being decentralized, there is still potential for failure if a node goes down (since the tokens are exchanged in a fixed order) or if a node fails to pass the token, though these issues can be mitigated via some recovery procedure
+## Switched Local Area Networks
+- Switched local networks operate at the *link layer*, switching *link-layer frames* (they do not recognize network layer addresses)
+### Link-Layer Addressing and ARP
+- The interfaces associated with hosts and routers have link-layer addresses
+	- There may be multiple interfaces and therefore multiple link-layer addresses
+- Link-layer *switches* do not have link-layer addresses associated with their interfaces connected to hosts and routers
+	- The purpose of a link-layer switch is simply to carry datagrams between hosts and routers, and it must do so *transparently*, without needing to be explicitly specified
+- A link-layer address is commonly referred to as a **LAN address** or a **physical address** or a **MAC address**, and are typically 6 bytes long ($2^{48}$ possible combinations)
+	- No two adapters are to have the same MAC address, and this is enforced by the IEEE, which manages the MAC address space
+		- If a company wishes to create adapters, it purchases a chunk of $2^{24}$ addresses for a fee, and IEEE allocates this chunk by fixing the first 24 bits of the address and allowing the company to change the remaining 24
+- Unlike an IP address, a MAC address is *always fixed*, regardless of where the  adapter goes
+- When an adapter sends a frame to a destination adapter, it specifies the destination MAC address into the frame and sends the frame to the local access network
+	- A receiving adapter will check the destination MAC address to check if it is their MAC address - if there is a match it will extract the datagram and pass it up, otherwise it will discard the frame
+	- If there is a **broadcast message** sent by an adapter, which specifies a special broadcast destination of the form `FF-FF-FF-FF-FF-FF`, then receiving adapter *will process it* even if the address does not actually match
+- Given that there are both *network-layer addresses* and *link-layer addresses*, associated with an interface, it is necessary to translate them via the **Address Resolution Protocol (ARP)**
+	- Each host and router will have an **ARP table**, which resolves IP addresses to MAC addresses for hosts and routers *on the same subnet*
+		- The table maps IP addresses to MAC addresses, also containing a TTL field for the mappings
+		- If an adapter does not have an ARP table entry for a particular IP address, it will send a special **ARP packet** which is sent via a *broadcast message*
+			- All other adapters on the subnet will receive the message and checks if the destination IP address on the ARP packet matches its own - if so, it will send back a response directly to the host (not a broadcast) with the appropriate information needed in the table
+	- For sending a datagram to a host *not on the same subnet*, an adapter should send the frame to the *first-hop router* to the other subnet
+		- The router will receive this frame, extract the datagram, and pass it up to the network layer, where it determines which IP address to forward to via its forwarding table and actually forwards it to the appropriate interface
+		- This interface then passes the data to its adapter, which creates a link-layer frame to go to the appropriate MAC address
+		- ![Figure 6.19](./Images/ARPA_Resolution.png)
+			- `111.111.111.111` sending to `222.222.222.222` will send to the router at `E6-E9-00-17-BB-4B`, which will then send to the host at `49-BD-D2-C7-56-2A` 
+### Ethernet
+- Original ethernet utilized a coaxial bus to interconnect all nodes - this was a broadcast LAN, where all transmitted frames travel to and are processed by all adapters connected to the bus
+	- This made use of the CSMA/CD protocol
+- The next evolution of ethernet made use of **hub** technology, which is a physical-layer device acting on individual bits rather than frames, boosting such bits
+	- This was also a broadcast LAN, needing functionality to handle collisions
+- Modern ethernet makes use of **switches**, which still connect all nodes, but makes use of store-and-forward (and so there is no need to deal with collisions)
+#### Ethernet Frame Structure
+- Structure:
+	- *Data Field (46  to 1500 bytes)*: Data that exceeds 1500 bytes must be fragmented, whereas data that is below 46 bytes must be stuffed as to meet the minimum sizing requirement
+	- *Destination Address*: Contains the MAC address of the destination adapter
+		- When an adapter receives a message with its destination address (or the broadcast adapter), then it will pass the message up the network layer and otherwise it will discard it
+	- *Source Address*
+	- *Type Field*: Permits Ethernet to multiplex different protocols, so this field can specify protocols such as IP, ARP, AppleTalk, etc.
+	- *Cyclic Redundancy Check (CRC)*: Error checking
+	- *Preamble*: This is an 8-byte field, with the first 7 bytes acting to synchronize the receiving adapters' clocks and the last byte serves to signify the incoming of the rest of the message
+- Ethernet is not reliable - if a frame fails the CRC check, it will simply be discarded but there will be no attempt at retransmission by the link layer (there may be an attempt at retransmission at higher layers)
