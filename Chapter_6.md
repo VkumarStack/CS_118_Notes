@@ -146,3 +146,28 @@
 	- *Cyclic Redundancy Check (CRC)*: Error checking
 	- *Preamble*: This is an 8-byte field, with the first 7 bytes acting to synchronize the receiving adapters' clocks and the last byte serves to signify the incoming of the rest of the message
 - Ethernet is not reliable - if a frame fails the CRC check, it will simply be discarded but there will be no attempt at retransmission by the link layer (there may be an attempt at retransmission at higher layers)
+### Link Layer Switches
+- A *switch* receives incoming link-layer frames and forwards them onto outgoing links
+	- A switch is *transparent* to the hosts and routers in the subnet - when a host sends a frame to another host, it is unaware that a switch will be receiving the frame and forwarding it
+#### Forwarding and Filtering
+- **Filtering** is the function of determining whether to **forward** a frame or to drop it
+	- Filtering and forwarding is done is done via a **switch table**, which contains entries for some of the hosts and routers on a LAN
+	- ![Figure 6.22](./Images/Switch_Table.png)
+- Consider a frame with a certain destination address $A$ arriving at the switch at interface $x$
+	- If there is no entry in the switch table for $A$, the switch forwards the frame to *all* interfaces except $x$ - it broadcasts
+	- If there is an entry in the table for $A$ that is $x$, the message will be filtered (since its destination is from the same interface it arrived from)
+	- If there is an entry in the table for $A$ that is not $x$, the message will be forwarded to the appropriate interface $y$
+#### Self Learning
+- Switch tables are built *dynamically*
+- The switch table is initially empty, but with each incoming frame received on the interface, the switch stores in its table the MAC address from the frame's *source address field*, the *interface from which the frame was received*, and *the current time*
+	- It every host in the LAN sends a frame, then eventually every host will get recorded in the switch table
+	- The switch will delete an address in the table if no frames are received with that address after some period of time (**aging time**)
+#### Properties of Link-Layer Switching
+- Advantages:
+	- *Elimination of collisions*: Switches *buffer frames* and never transmit more than one frame on a segment at any time, which is therefore an improvement over broadcast links because there is no wasted bandwidth due to collisions
+	- *Heterogeneous links*: Switches isolate one link from another, allowing for for different links to operate at different speeds and run over different media
+	- *Management*: Network management is made much easier, as switches can automatically detect malfunctions and correct them, and they can also collect statistics on usage to make debugging easier
+#### Switches versus Routers
+- Switches are fundamentally different from routers in that they base their store-and-forward paradigm on *MAC addresses*
+- Switches have higher filtering and forwarding rates than routers, but they have a *restricted active topology* to just a spanning tree, which means that they do not implement optimal routing compared to routers
+	- Switches are typical for small networks whereas larger networks make use of routers to handle more complex routing
