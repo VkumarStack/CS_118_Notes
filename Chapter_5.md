@@ -31,7 +31,7 @@
 				  D(v) = min(D(v), D(w) + c(w, v))
 	 - The predecessor nodes acquired from the algorithm can be used to construct the least-cost path, and this path can be used to set the forwarding tables in a node
  - One issue with the link-state routing algorithm arises when the topology where link costs are equal to the load carried on the link - this can cause *oscillation*
-	 - ![Figure 5.5](./Images/Link_State_Routing_Oscillation.png)
+	 - ![Figure 5.5](./Images/Link_State_routing_Oscillation.png)
 	 - One solution to this problem is to ensure that not all routers run the link-state routing algorithm at the same time
 ### The Distance-Vector (DV) Routing Algorithm
 - The distance-vector algorithm leverages the recurrence: $d_x(y) = min_v(c(x, v) + d_v(y))$
